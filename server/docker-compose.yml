@@ -1,0 +1,19 @@
+# как работает не знаю, но работает. Это типо настройка для docker контейнера, где изолированно запускается postgresSQL
+version: '3.8'
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: safekeeper_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin  # пароль
+      - POSTGRES_DB=safekeeper
+    ports:
+      - "5432:5432"
+    volumes:
+    # указали где хранить БД. Это важно, поскольку контейнеры в докере временно существуют. После выключения они удаляются, как и все данные, 
+    # кроме тех, которые сохранили на диск
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
