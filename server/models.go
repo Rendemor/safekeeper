@@ -6,45 +6,53 @@ import (
 	"github.com/google/uuid"
 )
 
-// таблица пользователей
+// User - таблица пользователей
 type User struct {
-	// id пользователя
+	// id пользователя (используем UUID для защиты от перебора)
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	// почта
-	Email        string `gorm:"unique;not null"`
-	// хеш пароля для входа в систему.
+	Email string `gorm:"unique;not null"`
+	// хеш мастер-пароля (bcrypt) исключительно для входа в систему
 	PasswordHash string `gorm:"not null"`
-	// публичный ключ для шифрования пароля, чтобы можно было безопасно делиться ими
-	PublicKey           string `gorm:"type:text"`
-	// зашифрованный мастер-пароль (приватный), чтобы можно было с другого устройства узнать свои пароли
-	EncryptedPrivateKey string `gorm:"type:text"`
-	// время создания
+	// соль (штуда для генерации уникальных ключей) для PBKDF2, которая используется в браузере для генерации ключей шифрования
+	MasterKeySalt string `gorm:"type:text;"`
+	// публичный ключ пользователя (RSA) для асимметричного шифрования
+	PublicKey string `gorm:"type:text;not null"`
+	// приватный ключ пользователя (RSA), зашифрованный в браузере ключом KEK (на базе мастер-пароля)
+	EncryptedPrivateKey string `gorm:"type:text;not null"`
+	// время создания аккаунта
 	CreatedAt time.Time
 }
 
-// данные (пароли)
+// таблица зашифрованных паролей (сейф)
 type Secret struct {
-	// id записи внутри текущей таблицы
+	// id записи
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	// id пользователя из таблицы с пользователями, чтобы понимать чей пароль
+	// владелец пароля
 	UserID uuid.UUID `gorm:"type:uuid;not null"`
-	// название пароля
-	Title string `gorm:"size:100"`
-	// зашифрованные данные (пароль). Они шифруются публичным ключом того, кто добавил пароль
+	// название сервиса
+	Title string `gorm:"size:100;not null"`
+	// логин (лучше сделать шифрование, но пока без него)
+	Login string `gorm:"type:text"`
+	// сам зашифрованный пароль (зашифрован ключом DEK)
 	EncryptedData string `gorm:"type:text;not null"`
-	UpdatedAt     time.Time
+	// зашифрованный ключ DEK (зашифрован публичным ключом RSA)
+	EncryptedDEK string `gorm:"type:text;not null"`
+	// техническая строка для алгоритма шифрования AES-GCM
+	EncryptionNonce string `gorm:"type:text;not null"`
+	// Время последнего обновления
+	UpdatedAt time.Time
 }
 
 // логирование действий
 type AuditLog struct {
-	// id записи внутри текущей таблицы
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	// id пользователя из таблицы с пользователями, чтобы понимать кто запросил/добавил/изменил/удалил данные (пароль)
+	ID     uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	UserID uuid.UUID `gorm:"type:uuid"`
-	// действие
-	Action string
-	// IP устройства, откуда произошли изменения
+	// описание действия (изменение/запрос доступа/просмотр/копирование и т.д.)
+	Action string `gorm:"not null"`
+	// IP адрес устройства, с которого было совершено действие
 	IPAddress string
-	// время
+	// информация о браузере/устройстве
+	UserAgent string
 	CreatedAt time.Time
 }

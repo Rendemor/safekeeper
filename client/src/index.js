@@ -3,11 +3,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './styles/main.less'; 
 import './styles/_reset.less'; 
-import RegisterForm from './components/RegisterForm'; // компонент с регистрацией
+import App from './App.js'
+import { CryptoProvider } from './context/CryptoContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <RegisterForm />
+    <CryptoProvider>
+      <App />
+    </CryptoProvider>
   </React.StrictMode>
 );

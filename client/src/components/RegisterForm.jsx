@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
 import '../styles/components/RegisterForm.less'; // импорт стилей для формы регистрации
+import { 
+    generateSalt, 
+    deriveMasterKey, 
+    generateRSAKeyPair, 
+    exportKey, 
+    encryptPrivateKey,
+    deriveLoginHash
+} from '../utils/crypto'; // импорт функций для шифрования паролей
 
 function RegisterForm() {
     // объявление переменных состояния
@@ -16,13 +24,38 @@ function RegisterForm() {
         setIsError(false);
 
         try {
+            // генерация соли и RSA (публичный + приватный ключи)
+            const salt = generateSalt();
+            const RSAKeys = await generateRSAKeyPair();
+
+            // генерация KEK (key encryption for key - ключ для шифрования ключа) на основе мастер-пароля (просто ключ от учётной записи)
+            const kek = await deriveMasterKey(password, salt);
+
+            // хеширование пароля, чтобы на сервер сразу приходил только хеш пароля
+            const loginHash = await deriveLoginHash(password, salt); 
+
+            // шифрование приватного ключа с помощью kek
+            const encryptedPrivKey = await encryptPrivateKey(RSAKeys.privateKey, kek);
+
+            // экспортирование ключа в base64
+            const exportedPubKey = await exportKey(RSAKeys.publicKey);
+
+            // экспортирование соли в base64 для хранения
+            const saltString = btoa(String.fromCharCode(...salt));
+
             // указываем куда отправить данные, а также тип запрос, какие данные и само наполнение
             const response = await fetch('http://localhost:8080/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ 
+                    email: email, 
+                    password: loginHash, // Пароль для bcrypt на сервере
+                    master_key_salt: saltString,
+                    public_key: exportedPubKey,
+                    encrypted_private_key: encryptedPrivKey
+                    }),
             });
             
             // тут хранится ответ с сервера
