@@ -1,0 +1,83 @@
+@import '../main.less';
+
+// Основной блок (Block)
+.registration {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+
+    // Элемент заголовка (Element)
+    &-title {
+        color: @primary-color;
+        margin-bottom: 25px;
+        font-size: 28px;
+    }
+
+    // Элемент формы
+    &-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+
+        // Вложенный элемент группы (label + input)
+        .form-group {
+            text-align: left;
+
+            &-label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: bold;
+                color: @text-color;
+            }
+
+            &-input {
+                width: 100%;
+                padding: 12px 15px;
+                border: 1px solid @border-color;
+                border-radius: 5px;
+                font-size: 16px;
+                box-sizing: border-box;
+
+                &:focus {
+                    border-color: @primary-color;
+                    outline: none;
+                    box-shadow: 0 0 0 3px lighten(@primary-color, 30%);
+                }
+            }
+        }
+    }
+
+    // Элемент кнопки
+    &-button {
+        .button-style();
+        background-color: @primary-color;
+        color: #fff;
+        margin-top: 20px;
+
+        &:hover {
+            background-color: darken(@primary-color, 10%);
+        }
+    }
+
+    // Элемент сообщения с модификаторами
+    &-message {
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 5px;
+        font-weight: bold;
+
+        &--error {
+            background-color: lighten(@danger-color, 35%);
+            color: @danger-color;
+        }
+
+        &--success {
+            background-color: lighten(@success-color, 35%);
+            color: @success-color;
+        }
+    }
+}
