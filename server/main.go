@@ -12,10 +12,9 @@ func main() {
 	// инициализация сервера
 	e := echo.New()
 
-	// тестовый маршрут. Не знаю работает ли, но ошибку не получаю
-	e.GET("/", func(c echo.Context) error {
-		return c.String(200, "Сервер SafeKeeper запущен!")
-	})
+	// настройка маршрута к созданию пользователя. Сначала указываем маршрут. Если на него приходит POST запрос, то запускается
+	// функция RegisterHandler
+	e.POST("/register", RegisterHandler)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
