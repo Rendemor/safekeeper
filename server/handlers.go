@@ -108,52 +108,48 @@ func LoginHandler(c echo.Context) error {
 }
 
 func AddPasswordHandler(c echo.Context) error {
-    // структура для пароля
-    type PasswordInput struct {
-        Title           string `json:"title"`
-        Login           string `json:"login"`
-        EncryptedData   string `json:"encrypted_data"`
-        EncryptionNonce string `json:"encryption_nonce"`
-        EncryptedDEK    string `json:"encrypted_dek"` // <--- Добавляем, это ключ от данных!
-    }
+	// структура для пароля
+	type PasswordInput struct {
+		Title           string `json:"title"`
+		Login           string `json:"login"`
+		EncryptedData   string `json:"encrypted_data"`
+		EncryptionNonce string `json:"encryption_nonce"`
+		EncryptedDEK    string `json:"encrypted_dek"`
+	}
 
-    input := new(PasswordInput)
-    if err := c.Bind(input); err != nil {
-        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
-    }
+	input := new(PasswordInput)
+	if err := c.Bind(input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
 
-    // достаём ID пользователя из токена. 
-    // В JWT числа обычно парсятся как float64, поэтому приводим так:
-    userToken := c.Get("user").(*jwt.Token)
-    claims := userToken.Claims.(jwt.MapClaims)
-    
-    // Тут аккуратно: если в токене UUID как строка, оставляем string. 
-    // Если число (uint/int), то используем float64.
-    userIDRaw := claims["user_id"]
-    
-    // сохраняем данные в структуру как в БД
-    newSecret := Secret{
-        // Предполагаю, что тут у тебя логика связи с пользователем
-        Title:           input.Title,
-        Login:           input.Login,
-        EncryptedData:   input.EncryptedData,
-        EncryptionNonce: input.EncryptionNonce,
-        EncryptedDEK:    input.EncryptedDEK,
-    }
+	// достаём ID пользователя из токена.
+	// в JWT числа обычно парсятся как float64, поэтому приводим так:
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
 
-    // Пример обработки UUID, если он пришел как строка
-    if str, ok := userIDRaw.(string); ok {
-        parsedUserID, err := uuid.Parse(str)
-        if err == nil {
-            newSecret.UserID = parsedUserID
-        }
-    }
+	userIDRaw := claims["user_id"]
 
-    if err := DB.Create(&newSecret).Error; err != nil {
-        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
-    }
+	// сохраняем данные в структуру как в БД
+	newSecret := Secret{
+		Title:           input.Title,
+		Login:           input.Login,
+		EncryptedData:   input.EncryptedData,
+		EncryptionNonce: input.EncryptionNonce,
+		EncryptedDEK:    input.EncryptedDEK,
+	}
 
-    return c.JSON(http.StatusCreated, newSecret)
+	if str, ok := userIDRaw.(string); ok {
+		parsedUserID, err := uuid.Parse(str)
+		if err == nil {
+			newSecret.UserID = parsedUserID
+		}
+	}
+
+	if err := DB.Create(&newSecret).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+	}
+
+	return c.JSON(http.StatusCreated, newSecret)
 }
 
 func GetSaltHandler(c echo.Context) error {
@@ -168,4 +164,22 @@ func GetSaltHandler(c echo.Context) error {
 
 	// возвращаем только соль, больше ничего не надо
 	return c.JSON(http.StatusOK, map[string]string{"salt": user.MasterKeySalt})
+}
+
+func GetPasswordHandler(c echo.Context) error {
+	// достаём ID пользователя из токена.
+	// В JWT числа обычно парсятся как float64, поэтому приводим так:
+	userToken := c.Get("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userIDRaw := claims["user_id"]
+
+	// поиск всех паролей для пользователя с полученным userIDRaw
+	var passwords []Secret // обязательно указали, что не одна строка, а несколько (несколько паролей)
+	// важно заметить, что теперь используем Find, то есть ищем все записи, а не первую (First)
+	if err := DB.Where("user_id = ?", userIDRaw).Find(&passwords).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
+	}
+
+	// одаём результат поиска
+	return c.JSON(http.StatusOK, passwords)
 }

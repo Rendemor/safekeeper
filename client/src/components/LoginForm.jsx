@@ -53,9 +53,9 @@ function LoginForm({onLoginSuccess}) {
                 setMessage("Вы вошли успешно!");
                 setIsError(false);
 
-                console.log("Данные с сервера:", data); // СМОТРИ СЮДА В КОНСОЛИ!
+                // console.log("Данные с сервера:", data); // логирование
 
-                // Внутри handleLogin после успешного ответа от сервера:
+                // внутри handleLogin после успешного ответа от сервера
                 const { token, encrypted_private_key, public_key } = data;
 
                 // зная kek, расшифровываем приватный ключ, который получили от сервера

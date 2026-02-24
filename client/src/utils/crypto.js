@@ -177,3 +177,44 @@ export const encryptData = async (plainText, publicKey) => {
         iv: bufferToBase64(iv)
     };
 };
+
+// конвертация base64 в бинарный вид
+const base64ToBuffer = (base64) => {
+    const binaryString = window.atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+};
+
+
+// дешифровка данных
+export const decryptData = async (encryptedData, encryptedDek, iv, privateKey) => {
+    const decoder = new TextDecoder();
+
+    // расшифровка DEK через приватный ключ (был получем после входа в систему)
+    const decryptedDekBuffer = await window.crypto.subtle.decrypt(
+        { name: "RSA-OAEP" },
+        privateKey,
+        base64ToBuffer(encryptedDek)
+    );
+
+    // мпортируем расшифрованный DEK как ключ AES-GCM
+    const dek = await window.crypto.subtle.importKey(
+        "raw",
+        decryptedDekBuffer,
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+    );
+
+    // расшифровка данных
+    const decryptedContent = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: base64ToBuffer(iv) },
+        dek,
+        base64ToBuffer(encryptedData)
+    );
+
+    return decoder.decode(decryptedContent);
+};
