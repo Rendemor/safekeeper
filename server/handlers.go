@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"golang.org/x/crypto/bcrypt"
@@ -105,6 +104,7 @@ func LoginHandler(c echo.Context) error {
 		"public_key":            user.PublicKey,
 		"encrypted_private_key": user.EncryptedPrivateKey,
 	})
+
 }
 
 func AddPasswordHandler(c echo.Context) error {
@@ -122,12 +122,10 @@ func AddPasswordHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
 	}
 
-	// достаём ID пользователя из токена.
-	// в JWT числа обычно парсятся как float64, поэтому приводим так:
-	userToken := c.Get("user").(*jwt.Token)
-	claims := userToken.Claims.(jwt.MapClaims)
-
-	userIDRaw := claims["user_id"]
+	userIDuuid, err := getUserIDuuid(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат ID"})
+	}
 
 	// сохраняем данные в структуру как в БД
 	newSecret := Secret{
@@ -136,18 +134,14 @@ func AddPasswordHandler(c echo.Context) error {
 		EncryptedData:   input.EncryptedData,
 		EncryptionNonce: input.EncryptionNonce,
 		EncryptedDEK:    input.EncryptedDEK,
-	}
-
-	if str, ok := userIDRaw.(string); ok {
-		parsedUserID, err := uuid.Parse(str)
-		if err == nil {
-			newSecret.UserID = parsedUserID
-		}
+		UserID:          userIDuuid,
 	}
 
 	if err := DB.Create(&newSecret).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
 	}
+
+	logAudit(c, ActionPasswordCreate)
 
 	return c.JSON(http.StatusCreated, newSecret)
 }
@@ -167,16 +161,12 @@ func GetSaltHandler(c echo.Context) error {
 }
 
 func GetPasswordHandler(c echo.Context) error {
-	// достаём ID пользователя из токена.
-	// В JWT числа обычно парсятся как float64, поэтому приводим так:
-	userToken := c.Get("user").(*jwt.Token)
-	claims := userToken.Claims.(jwt.MapClaims)
-	userIDRaw := claims["user_id"]
+	userId := getUserId(c)
 
 	// поиск всех паролей для пользователя с полученным userIDRaw
 	var passwords []Secret // обязательно указали, что не одна строка, а несколько (несколько паролей)
 	// важно заметить, что теперь используем Find, то есть ищем все записи, а не первую (First)
-	if err := DB.Where("user_id = ?", userIDRaw).Find(&passwords).Error; err != nil {
+	if err := DB.Where("user_id = ?", userId).Find(&passwords).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
 	}
 
