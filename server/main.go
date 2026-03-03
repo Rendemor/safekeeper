@@ -39,8 +39,10 @@ func main() {
 
 	// маршрут для добавления пароля теперь внутри защищенной группы
 	r.POST("/add-pass", AddPasswordHandler)
-
 	r.GET("/get-pass", GetPasswordHandler)
+
+	r.POST("/pwd-show", ShowPasswordHandler)
+	r.POST("/pwd-copy", CopyPasswordHandler)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

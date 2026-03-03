@@ -190,3 +190,16 @@ func GetPasswordHandler(c echo.Context) error {
 	// одаём результат поиска
 	return c.JSON(http.StatusOK, passwords)
 }
+
+func ShowPasswordHandler(c echo.Context) error {
+	logAudit(c, ActionPasswordView, uuid.Nil)
+
+	// пустой ответ. Статус 204
+	return c.NoContent(http.StatusNoContent)
+}
+
+func CopyPasswordHandler(c echo.Context) error {
+	logAudit(c, ActionPasswordCopy, uuid.Nil)
+
+	return c.NoContent(http.StatusNoContent)
+}

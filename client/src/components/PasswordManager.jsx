@@ -26,6 +26,15 @@ const PasswordRow = ({ item, privateKey }) => {
             try {
                 const pass = await getPlainPassword();
                 setDecryptedPassword(pass);
+
+                await fetch('http://localhost:8080/pwd-show', {
+                    method: 'POST',
+                    headers: { 
+                        // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
+                    }
+                });
             } catch (err) {
                 console.error("Ошибка расшифровки:", err);
                 setDecryptedPassword("Ошибка!");
@@ -37,11 +46,22 @@ const PasswordRow = ({ item, privateKey }) => {
         setIsShown(!isShown);
     };
 
+    // копирование пароля
     const handleCopy = async () => {
         try {
             const pass = await getPlainPassword();
             // встроенная функция, чтобы скопировать в буффер обмена любой текст
             await navigator.clipboard.writeText(pass);
+
+            await fetch('http://localhost:8080/pwd-copy', {
+                method: 'POST',
+                headers: { 
+                    // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
+                }
+            });
+
             alert("Пароль скопирован в буфер обмена!");
         } catch (err) {
             console.error("Не удалось скопировать:", err);
