@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
 	"golang.org/x/crypto/bcrypt"
@@ -50,14 +51,19 @@ func RegisterHandler(c echo.Context) error {
 
 	result := DB.Create(&newUser)
 	if result.Error != nil {
+		logAudit(c, ActionRegFailed, uuid.Nil)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Пользователь уже существует или ошибка БД"})
 	}
+
+	// функция лдя логирования. Обычно uuid достают из jwt токена, но во время регистрации пользователь ещё не имеет токена, поэтому
+	// указываем ID самостоятельно.
+	logAudit(c, ActionRegSuccess, newUser.ID)
 
 	// возвращаем успех, если всё ок
 	return c.JSON(http.StatusCreated, map[string]string{"message": "Пользователь успешно создан!"})
 }
 
-// Секретный ключ для подписи токенов (храни его в секрете!)
+// секретный ключ для подписи токенов
 var jwtSecret = []byte("secret_key_for_jwt")
 
 func LoginHandler(c echo.Context) error {
@@ -94,8 +100,11 @@ func LoginHandler(c echo.Context) error {
 
 	t, err := token.SignedString(jwtSecret)
 	if err != nil {
+		logAudit(c, ActionLoginFailed, user.ID)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка генерации токена"})
 	}
+
+	logAudit(c, ActionLoginSuccess, user.ID)
 
 	// возвращаем токен и зашифрованные ключи
 	return c.JSON(http.StatusOK, map[string]string{
@@ -138,10 +147,11 @@ func AddPasswordHandler(c echo.Context) error {
 	}
 
 	if err := DB.Create(&newSecret).Error; err != nil {
+		logAudit(c, ActionPasswordCreateFailed, uuid.Nil)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
 	}
 
-	logAudit(c, ActionPasswordCreate)
+	logAudit(c, ActionPasswordCreate, uuid.Nil)
 
 	return c.JSON(http.StatusCreated, newSecret)
 }
@@ -153,8 +163,12 @@ func GetSaltHandler(c echo.Context) error {
 	var user User
 	// ищем в базе пользователя с таким email
 	if err := DB.Where("email = ?", email).First(&user).Error; err != nil {
+		logAudit(c, ActionSaltGetFailed, user.ID)
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
 	}
+
+	// соль выдаётся для генерации KEK во время входа, поэтому jwt токена ещё нет
+	logAudit(c, ActionSaltGet, user.ID)
 
 	// возвращаем только соль, больше ничего не надо
 	return c.JSON(http.StatusOK, map[string]string{"salt": user.MasterKeySalt})
@@ -167,8 +181,11 @@ func GetPasswordHandler(c echo.Context) error {
 	var passwords []Secret // обязательно указали, что не одна строка, а несколько (несколько паролей)
 	// важно заметить, что теперь используем Find, то есть ищем все записи, а не первую (First)
 	if err := DB.Where("user_id = ?", userId).Find(&passwords).Error; err != nil {
+		logAudit(c, ActionPasswordRequestFailed, uuid.Nil)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
 	}
+
+	logAudit(c, ActionPasswordRequest, uuid.Nil)
 
 	// одаём результат поиска
 	return c.JSON(http.StatusOK, passwords)

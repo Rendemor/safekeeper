@@ -6,7 +6,6 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"fmt"
-	"net/http"
 )
 
 func getUserId(c echo.Context) string {
@@ -27,22 +26,26 @@ func getUserIDuuid(c echo.Context) (uuid.UUID, error) {
 	// распарсили ID как uuid (так в БД хранится)
 	parsedID, err := uuid.Parse(userID)
 	if err != nil {
-		return uuid.Nil, c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат ID"})
+		return uuid.Nil, err
 	}
 
 	return parsedID, nil
 }
 
-func logAudit(c echo.Context, action ActionCode) {
-	// получили id в uuid
-	userIDuuid, _ := getUserIDuuid(c)
+func logAudit(c echo.Context, action ActionCode, manualUUID uuid.UUID) {
+
+	if manualUUID == uuid.Nil {
+		// получили id в uuid
+		manualUUID, _ = getUserIDuuid(c)
+	}
+
 	// получаем ip пользователя
 	ip := c.RealIP()
 	// данные браузера пользователя
 	ua := c.Request().UserAgent()
 
 	newLog := AuditLog{
-		UserID:    userIDuuid,
+		UserID:    manualUUID,
 		Action:    string(action),
 		IPAddress: ip,
 		UserAgent: ua,
