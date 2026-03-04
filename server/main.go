@@ -44,5 +44,8 @@ func main() {
 	r.POST("/pwd-show", ShowPasswordHandler)
 	r.POST("/pwd-copy", CopyPasswordHandler)
 
+	// получение списка запросов на получение пароля
+	r.GET("/pwd-acs-req", GetPasswordAccessRequest)
+
 	e.Logger.Fatal(e.Start(":8080"))
 }

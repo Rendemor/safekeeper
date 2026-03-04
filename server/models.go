@@ -56,3 +56,16 @@ type AuditLog struct {
 	UserAgent string
 	CreatedAt time.Time
 }
+
+// таблица с запросами для получения пароля
+type PasswordAccessRequest struct {
+	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	// два ID. От кого запрос и кому
+	UserIDFrom uuid.UUID `gorm:"type:uuid"`
+	UserIDTo   uuid.UUID `gorm:"type:uuid"`
+	// название сервиса от коготорого запрашивается пароль
+	Title string `gorm:"size:100;not null"`
+	// публичный ключ того, кто запросил пароль для шифрования
+	PublicKey string `gorm:"type:text;not null"`
+	CreatedAt time.Time
+}

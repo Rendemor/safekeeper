@@ -1,0 +1,74 @@
+@import "../main.less"; // чтобы использовать цвета
+
+.vault {
+    max-width: 800px;
+    margin: 50px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+
+    &-title {
+        text-align: center;
+        color: @text-color;
+        margin-bottom: 25px;
+    }
+
+    &-table {
+        width: 100%;
+        border-collapse: collapse;
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            color: #666;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #fcfcfc;
+        }
+    }
+
+    &-input-readonly {
+        border: none;
+        background: transparent;
+        font-family: monospace;
+        width: 100px;
+    }
+
+    &-copy-btn {
+        padding: 5px 10px;
+        font-size: 12px;
+        background-color: @primary-color;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+
+        &:hover {
+            background-color: darken(@primary-color, 10%);
+        }
+    }
+
+    &-add-btn {
+        display: block;
+        margin: 20px auto 0;
+        padding: 10px 20px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+
+        &:hover {
+            background-color: darken(#28a745, 10%);
+        }
+    }
+}

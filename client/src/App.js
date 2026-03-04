@@ -3,9 +3,10 @@ import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import PasswordManager from './components/PasswordManager';
 import AddPassword from './components/AddPassword';
+import ReqPwdForm from './components/ReqPwdForm';
 import { useCrypto } from './context/CryptoContext';
 
-function App() {
+function App() { 
   const [page, setPage] = useState('login'); // переключение между формами
   
   // достаем всё из контекста, чтобы была синхронизация
@@ -43,14 +44,24 @@ function App() {
           return (
             <>
               <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
+              <p><button onClick={() => setPage('pwd-req')}>Запросы паролей</button></p>
               <AddPassword />
             </>
           )
+        case 'pwd-req':
+          return (
+            <>
+              <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
+              <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
+              <ReqPwdForm />
+            </>
+          );
         case 'vault':
         default:
           return (
             <>
               <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
+              <p><button onClick={() => setPage('pwd-req')}>Запросы паролей</button></p>
               <PasswordManager />
             </>
           )

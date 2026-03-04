@@ -203,3 +203,16 @@ func CopyPasswordHandler(c echo.Context) error {
 
 	return c.NoContent(http.StatusNoContent)
 }
+
+func GetPasswordAccessRequest(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	// создаём массив запросов на получение пароля
+	var pwdRequest []PasswordAccessRequest
+
+	if err := DB.Where("user_id_to = ?", userIDuuid).Find(&pwdRequest).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
+	}
+
+	return c.JSON(http.StatusOK, pwdRequest)
+}
