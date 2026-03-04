@@ -46,6 +46,8 @@ func main() {
 
 	// получение списка запросов на получение пароля
 	r.GET("/pwd-acs-req", GetPasswordAccessRequest)
+	// добавление запроса на получение пароля
+	r.POST("/pwd-req", AddPasswordRequest)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

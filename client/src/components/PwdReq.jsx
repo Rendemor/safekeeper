@@ -1,33 +1,20 @@
 import React, { useState } from 'react';
 import '../styles/components/PwdReq.less'; // импорт стилей для формы
-import {useCrypto} from '../context/CryptoContext'
-import {
-    encryptData
-} from '../utils/crypto'
 
 function ReqPwd() {
     // объявление переменных состояния
-    const [email, setEmail] = useState(''); // логин от стороннего сайта 
-    const [password, setPassword] = useState(''); // пароль от стороннего сайта
-    const [site, setSite] = useState(''); // название сайта 
-    const [message, setMessage] = useState('');
+    const [email, setEmail] = useState(''); // почта пользователя, у которого запрашивается пароль 
+    const [site, setSite] = useState(''); // название ресурса от которого нужен пароль
+    const [message, setMessage] = useState(''); 
     const [isError, setIsError] = useState(false);
     
-    // достаем публичный ключ из "облака", чтобы зашифровать данные
-    const {publicKey} = useCrypto();
-
     const handleSubmit = async (e) => {
         e.preventDefault(); // запрет перезагрузки, чтобы страница не моргала
 
-        setMessage('Сохранение...');
-        setIsError(false);
-
         try {
-            // шифруем пароль. На выходе получаем объект с зашифрованным текстом, ключом DEK и IV (nonce)
-            const encryptedData = await encryptData(password, publicKey);
-
+            
             // указываем куда отправить данные
-            const response = await fetch('http://localhost:8080/add-pass', {
+            const response = await fetch('http://localhost:8080/pwd-req', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -36,25 +23,19 @@ function ReqPwd() {
                 },
                 body: JSON.stringify({ 
                     title: site, // название сайта
-                    login: email, // логин от сайта 
-                    encrypted_data: encryptedData.encrypted_content, // зашифрованный пароль
-                    encryption_nonce: encryptedData.iv, // IV выступает в роли случайного шума
-                    encrypted_dek: encryptedData.encrypted_dek // зашифрованный ключ для этого пароля
+                    email: email, // логин от сайта 
                  }),
-            });
-            
-            const data = await response.json();
+            })
 
-            if (response.ok) {
-                setMessage("Пароль добавлен успешно!");
-                setIsError(false);
-                // очищаем поля после успеха
-                setSite('');
-                setEmail('');
-                setPassword('');
-            } else { 
-                setMessage(data.error || 'Произошла ошибка при добавлении пароля.');
-                setIsError(true);
+            // проверка какой ответ пришёл от сервера
+            if(response.ok) {
+                setMessage('Запрос на получение пароля успешно отправлен')
+                setIsError(false)
+                setSite('')
+                setEmail('')
+            } else {
+                setMessage('Неверные данные')
+                setIsError(true)
             }
         } catch (error) {
             console.error('Ошибка сети или сервера:', error);

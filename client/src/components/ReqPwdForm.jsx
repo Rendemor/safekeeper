@@ -1,104 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import '../styles/components/ReqPwdForm.less'; 
-import { useCrypto } from '../context/CryptoContext';
-import { decryptData } from '../utils/crypto';
 
 // отдельный компонент для удобной отрисовки с дешифровкой
-const PasswordRow = ({ item, privateKey }) => {
-    const [decryptedPassword, setDecryptedPassword] = useState('********');
-    const [isShown, setIsShown] = useState(false);
-
-    // получение пароля из строки
-    const getPlainPassword = async () => {
-
-        // дефивруем пароль и возвращаем его
-        return await decryptData(
-            item.EncryptedData, 
-            item.EncryptedDEK, 
-            item.EncryptionNonce, 
-            privateKey
-        );
-    };
-
-    // функция для показывания или скрытия пароля
-    const handleToggleShow = async () => {
-        if (!isShown) {
-            try {
-                const pass = await getPlainPassword();
-                setDecryptedPassword(pass);
-
-                await fetch('http://localhost:8080/pwd-show', {
-                    method: 'POST',
-                    headers: { 
-                        // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
-                    }
-                });
-            } catch (err) {
-                console.error("Ошибка расшифровки:", err);
-                setDecryptedPassword("Ошибка!");
-            }
-        } else {
-            // просто меняем пароль на звёздочки
-            setDecryptedPassword('********');
-        }
-        setIsShown(!isShown);
-    };
-
-    // копирование пароля
-    const handleCopy = async () => {
-        try {
-            const pass = await getPlainPassword();
-            // встроенная функция, чтобы скопировать в буффер обмена любой текст
-            await navigator.clipboard.writeText(pass);
-
-            await fetch('http://localhost:8080/pwd-copy', {
-                method: 'POST',
-                headers: { 
-                    // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
-                }
-            });
-
-            alert("Пароль скопирован в буфер обмена!");
-        } catch (err) {
-            console.error("Не удалось скопировать:", err);
-            alert("Ошибка при копировании");
-        }
-    };
+const ReqRow = ({ item }) => {
+    const [time, setTime] = useState('0')
 
     return (
         <tr>
             <td>{item.Title}</td>
             <td>
-                <input 
-                    type={isShown ? "text" : "password"} 
-                    value={decryptedPassword} 
-                    readOnly 
-                    className="vault-input-readonly"
-                />
-            </td>
-            <td>
-                <button className="vault-copy-btn" onClick={handleToggleShow}>
-                    {isShown ? "Скрыть" : "Показать"}
+                <button className="vault-copy-btn">
+                    Дать доступ
                 </button>
 
-                <button className="vault-copy-btn" onClick={handleCopy}>
-                    Копировать
+                <button className="vault-copy-btn">
+                    Отклонить
                 </button>
+            </td>
+            <td>
+                <input 
+                    type="time"   
+                    className="form-group-input"   
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    required          
+                />
             </td>
         </tr>
     );
 };
 
 function ReqPwdForm() {
-    const [passwords, setPasswords] = useState([]);
-    // достаём приватный ключ для расшифровки полученных паролей
-    const { privateKey } = useCrypto();
+    const [req, setReq] = useState([]);
 
-    const fetchPasswords = async () => {
+    const fetchReq = async () => {
         // передаю jwt токен для определения пользователя
         const response = await fetch('http://localhost:8080/pwd-acs-req', {
             method: 'GET',
@@ -108,16 +43,16 @@ function ReqPwdForm() {
         
         // проверяем, что пришёл именно массив
         if (Array.isArray(data)) {
-            setPasswords(data);
+            setReq(data);
         } else {
             console.error("Сервер прислал не массив:", data);
-            setPasswords([]);
+            setReq([]);
         }
     };
 
     // при отрисовке вызывается автоматически
     useEffect(() => {
-        fetchPasswords();
+        fetchReq();
     }, []);
 
     return (
@@ -129,15 +64,15 @@ function ReqPwdForm() {
                     <tr>
                         <th>Сайт</th>
                         <th>Действие</th>
+                        <th>Время доступа, ч</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {/* просто итератор. Вся отрисовка выше, тут только перебираем пароли */}
-                    {passwords.map((item) => (
-                        <PasswordRow 
+                    {/* просто итератор. Вся отрисовка выше, тут только перебираем запросы на получение паролей */}
+                    {req.map((item) => (
+                        <ReqRow 
                             key={item.ID} 
                             item={item} 
-                            privateKey={privateKey} 
                         />
                     ))}
                 </tbody>

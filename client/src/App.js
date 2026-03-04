@@ -41,43 +41,11 @@ function App() {
     // теперь ориентируемся на isAuthenticated из контекста + наличие ключа
     if (isAuthenticated && privateKey) {
       switch (page) {
-        case 'add':
-          return (
-            <>
-              <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
-              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
-              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
-              <AddPassword />
-            </>
-          )
-        case 'pwd-acs-req':
-          return (
-            <>
-              <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
-              <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
-              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
-              <AcsReqPwdForm />
-            </>
-          );
-        case 'pwd-req':
-          return (
-            <>
-              <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
-              <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
-              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
-              <PwdReq />
-            </>
-          );
+        case 'add': return <AddPassword />
+        case 'pwd-acs-req': return <AcsReqPwdForm />
+        case 'pwd-req': return <PwdReq />
         case 'vault':
-        default:
-          return (
-            <>
-              <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
-              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
-              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
-              <PasswordManager />
-            </>
-          )
+        default: return <PasswordManager />
       }
     }
 
@@ -106,7 +74,12 @@ function App() {
     <div className="app-container">
       {/* кнопка выхода видна только когда мы реально внутри и с ключами */}
       {isAuthenticated && (
-        <button className="logout-button" onClick={handleLogout}>Выйти</button>
+        <>
+          <p><button className="logout-button" onClick={handleLogout}>Выйти</button></p>
+          <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
+          <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
+          <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
+        </>
       )}
       
       {renderContent()}

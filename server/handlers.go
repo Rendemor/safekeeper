@@ -216,3 +216,43 @@ func GetPasswordAccessRequest(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, pwdRequest)
 }
+
+func AddPasswordRequest(c echo.Context) error {
+
+	type Req struct {
+		Title string `json:"title"`
+		// почта того, у кого хотим взять пароль
+		Email string `json:"email"`
+	}
+
+	input := new(Req)
+	if err := c.Bind(input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
+
+	userIDuuidFrom, _ := getUserIDuuid(c)
+	// поиск пользователя по email
+	var userTo User
+	if err := DB.Where("email = ?", input.Email).First(&userTo).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+	}
+	var userFrom User
+	if err := DB.Where("id = ?", userIDuuidFrom).First(&userFrom).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+	}
+
+	pwdReq := PasswordAccessRequest{
+		UserIDFrom: userIDuuidFrom,
+		UserIDTo:   userTo.ID,
+		Title:      input.Title,
+		// публичный ключ человека, который запросил пароль, чтобы владелец пароля мог зашифровать пароль этим ключом
+		PublicKey: userFrom.PublicKey,
+	}
+
+	// отправляем запрос пароля в БД
+	if err := DB.Create(&pwdReq).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
