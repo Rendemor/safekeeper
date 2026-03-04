@@ -3,7 +3,8 @@ import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import PasswordManager from './components/PasswordManager';
 import AddPassword from './components/AddPassword';
-import ReqPwdForm from './components/ReqPwdForm';
+import AcsReqPwdForm from './components/ReqPwdForm';
+import PwdReq from './components/PwdReq';
 import { useCrypto } from './context/CryptoContext';
 
 function App() { 
@@ -44,16 +45,27 @@ function App() {
           return (
             <>
               <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
-              <p><button onClick={() => setPage('pwd-req')}>Запросы паролей</button></p>
+              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
+              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
               <AddPassword />
             </>
           )
+        case 'pwd-acs-req':
+          return (
+            <>
+              <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
+              <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
+              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
+              <AcsReqPwdForm />
+            </>
+          );
         case 'pwd-req':
           return (
             <>
               <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
               <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
-              <ReqPwdForm />
+              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
+              <PwdReq />
             </>
           );
         case 'vault':
@@ -61,7 +73,8 @@ function App() {
           return (
             <>
               <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
-              <p><button onClick={() => setPage('pwd-req')}>Запросы паролей</button></p>
+              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
+              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
               <PasswordManager />
             </>
           )
