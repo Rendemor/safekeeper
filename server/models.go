@@ -65,6 +65,8 @@ type PasswordAccessRequest struct {
 	UserIDTo   uuid.UUID `gorm:"type:uuid"`
 	// название сервиса от коготорого запрашивается пароль
 	Title string `gorm:"size:100;not null"`
+	// логин от сервиса
+	Login string `gorm:"type:text"`
 	// публичный ключ того, кто запросил пароль для шифрования
 	PublicKey string `gorm:"type:text;not null"`
 	CreatedAt time.Time

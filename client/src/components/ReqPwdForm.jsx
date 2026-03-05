@@ -1,19 +1,88 @@
-import React, { useEffect, useState } from 'react';
-import '../styles/components/ReqPwdForm.less'; 
+import React, { useEffect, useState } from 'react'
+import '../styles/components/ReqPwdForm.less'
+import { decryptData, encryptData } from '../utils/crypto'
+import { useCrypto } from '../context/CryptoContext'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
-const ReqRow = ({ item }) => {
+const ReqRow = ({ item, onUpdate }) => {
     const [time, setTime] = useState('0')
+    const { privateKey } = useCrypto()
+
+    // даём доступ
+    const handleGrantAccess = async (e) => {
+
+        // запрашиваем конкретный пароль, чтобы зашифровать его и отправить другому пользователю
+        const pwd = await fetch(
+            `http://localhost:8080/get-one-pwd?title=${encodeURIComponent(item.Title)}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+        })
+
+        const data = await pwd.json()
+
+        // расшифровали пароль
+        const decPwd = decryptData(
+            data.EncryptedData, 
+            data.EncryptedDEK, 
+            data.EncryptionNonce, 
+            privateKey
+        )
+
+        const encryptedData = await encryptData(decPwd, item.PublicKey)
+
+        // непонятные преобразования в формат как на сервере
+        // преобразуем time (в минутах/секундах) в дату RFC3339
+        const timeInSeconds = parseInt(time, 10); // убедимся, что time — число
+        if (isNaN(timeInSeconds)) {
+            console.error('Неверный формат времени: time должен быть числом');
+            return;
+        }
+        const targetTime = new Date(Date.now() + timeInSeconds * 1000);
+        const isoTimeString = targetTime.toISOString(); // формат: "2023-01-01T14:30:00.000Z"
+
+        console.log(item.UserIDTo, item.UserIDFrom)
+
+        const response = await fetch("http://localhost:8080/pwd-acs-appr", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+            body: JSON.stringify({
+                ID: item.UserIDFrom, // ID пользователя, который запросил пароль
+                Title: item.Title,
+                Login: item.Login,
+                // это данные для того, кто запросил пароль, чтобы он смог расшифровать полученный пароль
+                encrypted_data: encryptedData.encrypted_content, // зашифрованный пароль
+                encryption_nonce: encryptedData.iv, // IV выступает в роли случайного шума
+                encrypted_dek: encryptedData.encrypted_dek, // зашифрованный ключ для этого пароля
+                TimeLife: isoTimeString // время жизни пароля
+            })
+        })
+
+        if(response.ok) {
+            onUpdate()
+        } else {
+           alert("Ошибка при выдаче доступа") 
+        }
+    }
+
+    // отклоняем
+    const handleRejectAccess = async (e) => {
+        
+    }
 
     return (
         <tr>
             <td>{item.Title}</td>
             <td>
-                <button className="vault-copy-btn">
+                <button className="vault-copy-btn" onClick={handleGrantAccess}>
                     Дать доступ
                 </button>
 
-                <button className="vault-copy-btn">
+                <button className="vault-copy-btn" onClick={handleRejectAccess}>
                     Отклонить
                 </button>
             </td>
@@ -73,6 +142,10 @@ function ReqPwdForm() {
                         <ReqRow 
                             key={item.ID} 
                             item={item} 
+                            // передаём ребёнку доступ к функции, которая отправляет запрос в БД для получения всех запросов
+                            // это необходимо, чтобы когда доступ был предоставлен или наоборот был запрещён, произошёл запрос
+                            // в БД и были получены актуальные данные. Это самый безопасный вариант
+                            onUpdate={fetchReq}
                         />
                     ))}
                 </tbody>

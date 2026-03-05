@@ -48,6 +48,10 @@ func main() {
 	r.GET("/pwd-acs-req", GetPasswordAccessRequest)
 	// добавление запроса на получение пароля
 	r.POST("/pwd-req", AddPasswordRequest)
+	// указываем в запросе title. В body запихнуть нельзя, у GET запроса не может быть body
+	r.GET("/get-one-pwd", GetOnePwd)
+	// маршрут для ободрения пароля. Будет выдан пароль другому пользователю
+	r.POST("/pwd-acs-appr", PasswordAccessApprove)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

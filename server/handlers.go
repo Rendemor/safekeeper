@@ -219,13 +219,13 @@ func GetPasswordAccessRequest(c echo.Context) error {
 
 func AddPasswordRequest(c echo.Context) error {
 
-	type Req struct {
+	type Res struct {
 		Title string `json:"title"`
 		// почта того, у кого хотим взять пароль
 		Email string `json:"email"`
 	}
 
-	input := new(Req)
+	input := new(Res)
 	if err := c.Bind(input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
 	}
@@ -240,11 +240,16 @@ func AddPasswordRequest(c echo.Context) error {
 	if err := DB.Where("id = ?", userIDuuidFrom).First(&userFrom).Error; err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
 	}
+	var pwd Secret
+	if err := DB.Where("title = ?", input.Title).First(&pwd).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Пароля нет"})
+	}
 
 	pwdReq := PasswordAccessRequest{
 		UserIDFrom: userIDuuidFrom,
 		UserIDTo:   userTo.ID,
 		Title:      input.Title,
+		Login:      pwd.Login,
 		// публичный ключ человека, который запросил пароль, чтобы владелец пароля мог зашифровать пароль этим ключом
 		PublicKey: userFrom.PublicKey,
 	}
@@ -255,4 +260,75 @@ func AddPasswordRequest(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func PasswordAccessApprove(c echo.Context) error {
+
+	type Res struct {
+		ID    uuid.UUID `json:"ID"`
+		Title string    `json:"title"`
+		Login string    `json:"Login"`
+		// это данные для того, кто запросил пароль, чтобы он смог расшифровать полученный пароль
+		Encrypted_data   string `json:"encrypted_data"`   // зашифрованный пароль
+		Encryption_nonce string `json:"encryption_nonce"` // IV выступает в роли случайного шума
+		Encrypted_dek    string `json:"encrypted_dek"`    // зашифрованный ключ для этого пароля
+		// пока что не реализовано. Данные передаются, но никак не используются
+		TimeLife time.Time `json:"TimeLife"` // время жизни пароля
+	}
+
+	res := new(Res)
+	if err := c.Bind(res); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
+
+	var user User
+	if err := DB.Where("id = ?", res.ID).First(&user).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+	}
+
+	pwd := Secret{
+		// владелец пароля
+		UserID: res.ID,
+		// название сервиса
+		Title: res.Title,
+		// логин (лучше сделать шифрование, но пока без него)
+		Login: res.Login,
+		// сам зашифрованный пароль (зашифрован ключом DEK)
+		EncryptedData: res.Encrypted_data,
+		// зашифрованный ключ DEK (зашифрован публичным ключом RSA)
+		EncryptedDEK: res.Encrypted_dek,
+		// техническая строка для алгоритма шифрования AES-GCM
+		EncryptionNonce: res.Encryption_nonce,
+	}
+
+	// добавляем запрошенный пароль пользователю, который запросил его
+	if err := DB.Create(&pwd).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+	}
+
+	// удаляем запрос на получение пароля
+	if err := DB.Where("user_id_from = ? AND title = ?", res.ID, res.Title).Delete(&PasswordAccessRequest{}).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка удаления старой записи"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func GetOnePwd(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	// вытаскиваем параметр title из URL
+	title := c.QueryParam("title")
+	if title == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Не указан заголовок пароля"})
+	}
+
+	// нашли нужный пароль
+	var pwd Secret
+	if err := DB.Where("title = ? AND user_id = ?", title, userIDuuid).First(&pwd).Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь или пароль не найдены"})
+	}
+
+	// отправляем пароль клиенту. Пароль зашифрован. Без ключей (получили при логине), пароль теоретически невозможно взломать
+	return c.JSON(http.StatusOK, pwd)
 }
