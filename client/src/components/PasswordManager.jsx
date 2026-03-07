@@ -35,6 +35,11 @@ const PasswordRow = ({ item, privateKey }) => {
                         'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
                     }
                 });
+
+                
+                console.log('Тип encryptedData:', typeof pass)
+                console.log('Содержимое encryptedData:', pass) 
+
             } catch (err) {
                 console.error("Ошибка расшифровки:", err);
                 setDecryptedPassword("Ошибка!");

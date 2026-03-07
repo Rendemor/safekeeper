@@ -130,7 +130,16 @@ const bufferToBase64 = (buffer) => {
 };
 
 // функция для шифрования паролей (уже тех, которые сохраняем)
-export const encryptData = async (plainText, publicKey) => {
+export const encryptData = async (data, publicKey) => {
+    // ЗАЩИТА: был случай, что в БД поместил promise. Не знаю как он туда попал, возможно пока тестил и писал код допустил ошибку
+    // сейчас этого не должно произойти никак, но навсякий случай повесил проверку
+    if (typeof data !== 'string') {
+        throw new Error("Критическая ошибка: попытка зашифровать не строковые данные!");
+    }
+    if (data === "[object Promise]") {
+        throw new Error("Критическая ошибка: попытка зашифровать объект Promise!");
+    }
+
     const encoder = new TextEncoder();
     let keyForEncryption = publicKey;
 
@@ -159,7 +168,7 @@ export const encryptData = async (plainText, publicKey) => {
     const encryptedContent = await window.crypto.subtle.encrypt(
         { name: "AES-GCM", iv: iv },
         dek,
-        encoder.encode(plainText)
+        encoder.encode(data)
     );
 
     // шифрование DEK публичным ключом

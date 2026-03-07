@@ -76,6 +76,7 @@ function App() {
       {isAuthenticated && (
         <>
           <p><button className="logout-button" onClick={handleLogout}>Выйти</button></p>
+          <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
           <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
           <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
           <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>

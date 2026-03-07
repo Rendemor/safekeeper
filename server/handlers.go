@@ -332,3 +332,26 @@ func GetOnePwd(c echo.Context) error {
 	// отправляем пароль клиенту. Пароль зашифрован. Без ключей (получили при логине), пароль теоретически невозможно взломать
 	return c.JSON(http.StatusOK, pwd)
 }
+
+func PasswordAccessReject(c echo.Context) error {
+	userIDto, _ := getUserIDuuid(c)
+
+	type Res struct {
+		ID    uuid.UUID `json:"ID"` // пароль того, кто запросил пароль
+		Title string    `json:"Title"`
+	}
+
+	res := new(Res)
+	if err := c.Bind(res); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
+
+	if err := DB.Where(
+		"user_id_from = ? AND user_id_to = ? AND title = ?",
+		res.ID, userIDto, res.Title).Delete(&PasswordAccessRequest{}).Error; err != nil {
+
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка удаления старой записи"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}

@@ -52,6 +52,9 @@ func main() {
 	r.GET("/get-one-pwd", GetOnePwd)
 	// маршрут для ободрения пароля. Будет выдан пароль другому пользователю
 	r.POST("/pwd-acs-appr", PasswordAccessApprove)
+	// отклонение запроса на получение пароля
+	r.POST("/pwd-acs-rej", PasswordAccessReject)
+
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

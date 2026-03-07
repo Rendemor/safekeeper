@@ -8,6 +8,18 @@ const ReqRow = ({ item, onUpdate }) => {
     const [time, setTime] = useState('0')
     const { privateKey } = useCrypto()
 
+    // получение пароля из строки
+    const getPlainPassword = async (data) => {
+
+        // дефивруем пароль и возвращаем его
+        return decryptData(
+            data.EncryptedData, 
+            data.EncryptedDEK, 
+            data.EncryptionNonce, 
+            privateKey
+        );
+    };
+
     // даём доступ
     const handleGrantAccess = async (e) => {
 
@@ -22,13 +34,16 @@ const ReqRow = ({ item, onUpdate }) => {
 
         const data = await pwd.json()
 
+        console.log(privateKey)
         // расшифровали пароль
-        const decPwd = decryptData(
-            data.EncryptedData, 
-            data.EncryptedDEK, 
-            data.EncryptionNonce, 
-            privateKey
-        )
+        const decPwd = await getPlainPassword(data)
+
+        // console.log(decPwd)
+        
+console.log('Тип encryptedData:', typeof data);
+console.log('Содержимое encryptedData:', data);
+console.log('Тип encryptedData:', typeof decPwd);
+console.log('Содержимое encryptedData:', decPwd);
 
         const encryptedData = await encryptData(decPwd, item.PublicKey)
 
@@ -41,8 +56,6 @@ const ReqRow = ({ item, onUpdate }) => {
         }
         const targetTime = new Date(Date.now() + timeInSeconds * 1000);
         const isoTimeString = targetTime.toISOString(); // формат: "2023-01-01T14:30:00.000Z"
-
-        console.log(item.UserIDTo, item.UserIDFrom)
 
         const response = await fetch("http://localhost:8080/pwd-acs-appr", {
             method: 'POST',
@@ -71,7 +84,23 @@ const ReqRow = ({ item, onUpdate }) => {
 
     // отклоняем
     const handleRejectAccess = async (e) => {
-        
+        const response = await fetch("http://localhost:8080/pwd-acs-rej", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+            body: JSON.stringify({
+                ID: item.UserIDFrom, // ID пользователя, который запросил пароль
+                Title: item.Title,
+            })
+        })
+
+        if(response.ok) {
+            onUpdate()
+        } else {
+            alert("Ошибка отклонения доступа")
+        }
     }
 
     return (
