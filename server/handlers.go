@@ -320,12 +320,16 @@ func GetOnePwd(c echo.Context) error {
 	// вытаскиваем параметр title из URL
 	title := c.QueryParam("title")
 	if title == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Не указан заголовок пароля"})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Не указано название"})
+	}
+	login := c.QueryParam("login")
+	if login == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Не указан логин"})
 	}
 
 	// нашли нужный пароль
 	var pwd Secret
-	if err := DB.Where("title = ? AND user_id = ?", title, userIDuuid).First(&pwd).Error; err != nil {
+	if err := DB.Where("title = ? AND login = ? AND user_id = ?", title, login, userIDuuid).First(&pwd).Error; err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь или пароль не найдены"})
 	}
 
@@ -354,4 +358,18 @@ func PasswordAccessReject(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func GetPublicKey(c echo.Context) error {
+	email := c.QueryParam("email")
+	if email == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный email"})
+	}
+
+	var user User
+	if err := DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+	}
+
+	return c.JSON(http.StatusOK, user)
 }

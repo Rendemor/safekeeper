@@ -54,6 +54,8 @@ func main() {
 	r.POST("/pwd-acs-appr", PasswordAccessApprove)
 	// отклонение запроса на получение пароля
 	r.POST("/pwd-acs-rej", PasswordAccessReject)
+	// получение публичного ключа по почте
+	r.GET("/get-public-key", GetPublicKey)
 
 
 	e.Logger.Fatal(e.Start(":8080"))

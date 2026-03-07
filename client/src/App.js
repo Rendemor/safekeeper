@@ -5,6 +5,7 @@ import PasswordManager from './components/PasswordManager';
 import AddPassword from './components/AddPassword';
 import AcsReqPwdForm from './components/ReqPwdForm';
 import PwdReq from './components/PwdReq';
+import SharePassword from './components/SharePassword'
 import { useCrypto } from './context/CryptoContext';
 
 function App() { 
@@ -44,6 +45,7 @@ function App() {
         case 'add': return <AddPassword />
         case 'pwd-acs-req': return <AcsReqPwdForm />
         case 'pwd-req': return <PwdReq />
+        case 'pwd-share': return <SharePassword /> 
         case 'vault':
         default: return <PasswordManager />
       }
@@ -79,6 +81,7 @@ function App() {
           <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
           <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
           <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
+          <p><button onClick={() => setPage('pwd-share')}>Поделиться паролем</button></p>
           <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
         </>
       )}
