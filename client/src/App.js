@@ -1,47 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import LoginForm from './components/LoginForm';
-import RegisterForm from './components/RegisterForm';
-import PasswordManager from './components/PasswordManager';
-import AddPassword from './components/AddPassword';
-import AcsReqPwdForm from './components/ReqPwdForm';
-import PwdReq from './components/PwdReq';
+import React, { useState, useEffect } from 'react'
+import LoginForm from './components/LoginForm'
+import RegisterForm from './components/RegisterForm'
+import PasswordManager from './components/PasswordManager'
+import AddPassword from './components/AddPassword'
+import AcsReqPwdForm from './components/ReqPwdForm'
+import PwdReq from './components/PwdReq'
 import SharePassword from './components/SharePassword'
-import { useCrypto } from './context/CryptoContext';
+import Setup2FA from './components/Setup2FA'
+import Verificate2FA from './components/Verificate2FA'
+import { useCrypto } from './context/CryptoContext'
 
 function App() { 
-  const [page, setPage] = useState('login'); // переключение между формами
+  const [page, setPage] = useState('login') // переключение между формами
+  const [OTPEnable, setOTPEnable] = useState(false)
+  const [is2FAVerified, setIs2FAVerified] = useState(false) // Новый флаг: прошел ли юзер проверку прямо сейчас
   
-  // достаем всё из контекста, чтобы была синхронизация
-  const { privateKey, isAuthenticated, setIsAuthenticated, logout } = useCrypto();
+  const { privateKey, isAuthenticated, setIsAuthenticated, logout } = useCrypto()
 
   // проверка состояния сессии при загрузке или изменении ключа
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token')
     
-    // если токен в браузере есть, а ключа в памяти нет — значит страницу обновили и секретные данные стерлись
     if (token && !privateKey) {
-      alert("Сессия истекла. Введите мастер-пароль заново для расшифровки данных.");
-      logout(); // чистим всё через контекст
-      setPage('login'); // кидаем на вход
+      alert("Сессия истекла. Введите мастер-пароль заново для расшифровки данных.")
+      logout() 
+      setPage('login')
     } 
-    // если и токен на месте, и ключ в памяти появился (после логина) — показываем пароли
+    // Если залогинились (есть токен и ключ), решаем куда направить
     else if (token && privateKey) {
-      setIsAuthenticated(true);
-      setPage('vault');
+      setIsAuthenticated(true)
+
+      if (!OTPEnable) {
+        // Сценарий 1: 2FA не подключена -> только настройка
+        setPage('2FA')
+      } else if (!is2FAVerified) {
+        // Сценарий 2: 2FA включена, но код еще не подтвержден в этой сессии
+        setPage('ver-2FA')
+      } else {
+        // Сценарий 3: Все проверки пройдены -> в сейф
+        setPage('vault')
+      }
     }
-  }, [privateKey, logout, setIsAuthenticated]);
+  }, [privateKey, OTPEnable, is2FAVerified, logout, setIsAuthenticated])
 
-  // функция для выхода. Просто вызываем наш глобальный logout и сбрасываем страницу
   const handleLogout = () => {
-    logout(); 
-    setPage('login');
-  };
+    logout() 
+    setPage('login')
+    setOTPEnable(false)
+    setIs2FAVerified(false)
+  }
 
-  // функция для отрисовки. В ней просто логика когда и что отрисовывается
   const renderContent = () => {
-    // теперь ориентируемся на isAuthenticated из контекста + наличие ключа
     if (isAuthenticated && privateKey) {
       switch (page) {
+        case '2FA': return <Setup2FA setPage={setPage} setOTPEnable={setOTPEnable} />
+        case 'ver-2FA': return <Verificate2FA setPage={setPage} setIs2FAVerified={setIs2FAVerified} />
         case 'add': return <AddPassword />
         case 'pwd-acs-req': return <AcsReqPwdForm />
         case 'pwd-req': return <PwdReq />
@@ -51,44 +64,49 @@ function App() {
       }
     }
 
-    // логика для тех, кто не вошел или у кого нет ключа в памяти
+    // логика для тех, кто не вошел
     switch (page) {
       case 'register':
         return (
           <>
-            <RegisterForm />
+            <RegisterForm setPage={setPage} />
             <p>Уже есть аккаунт? <button onClick={() => setPage('login')}>Войти</button></p>
           </>
-        );
+        )
       case 'login':
       default:
         return (
-          <>
-            {/* LoginForm сам вызовет setPrivateKey, и useEffect выше это подхватит */}
-            <LoginForm />
-            <p>Нет аккаунта? <button onClick={() => setPage('register')}>Регистрация</button></p>
+          <> 
+            <LoginForm setPage={setPage} setOTPEnable={setOTPEnable} />
+            <p>Нет аккаунта? <button onClick={() => setPage('register')}>Зарегистрироваться</button></p>
           </>
-        );
+        )
     }
-  };
+  }
 
   return (
     <div className="app-container">
-      {/* кнопка выхода видна только когда мы реально внутри и с ключами */}
       {isAuthenticated && (
-        <>
+        <div className="nav-menu">
+          {/* Кнопка выхода видна ВСЕГДА */}
           <p><button className="logout-button" onClick={handleLogout}>Выйти</button></p>
-          <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
-          <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
-          <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
-          <p><button onClick={() => setPage('pwd-share')}>Поделиться паролем</button></p>
-          <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
-        </>
+          
+          {/* Кнопки управления появляются ТОЛЬКО если 2FA настроена И пройдена проверка кода */}
+          {OTPEnable && is2FAVerified && (
+            <>
+              <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
+              <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
+              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
+              <p><button onClick={() => setPage('pwd-share')}>Поделиться паролем</button></p>
+              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
+            </>
+          )}
+        </div>
       )}
       
       {renderContent()}
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

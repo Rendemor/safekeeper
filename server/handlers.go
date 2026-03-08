@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/pquerna/otp/totp"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -106,14 +107,83 @@ func LoginHandler(c echo.Context) error {
 
 	logAudit(c, ActionLoginSuccess, user.ID)
 
-	// возвращаем токен и зашифрованные ключи
-	return c.JSON(http.StatusOK, map[string]string{
-		"message":               "Вход выполнен!",
-		"token":                 t,
-		"public_key":            user.PublicKey,
-		"encrypted_private_key": user.EncryptedPrivateKey,
-	})
+	type LoginResponse struct {
+		Message             string `json:"message"`
+		Token               string `json:"token"`
+		PublicKey           string `json:"public_key"`
+		EncryptedPrivateKey string `json:"encrypted_private_key"`
+		OTPEnabled          bool   `json:"otp_enabled"`
+	}
 
+	// В самом обработчике:
+	return c.JSON(http.StatusOK, LoginResponse{
+		Message:             "Вход выполнен!",
+		Token:               t,
+		PublicKey:           user.PublicKey,
+		EncryptedPrivateKey: user.EncryptedPrivateKey,
+		OTPEnabled:          user.OTPEnabled,
+	})
+}
+
+func GetQRFor2FA(c echo.Context) error {
+	userID, _ := getUserIDuuid(c)
+
+	var user User
+	if err := DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+	}
+
+	if user.OTPSecret == "" || user.OTPEnabled == false {
+		// генерируем ключ для 2FA
+		key, _ := totp.Generate(totp.GenerateOpts{
+			// Название приложения, которое увидит пользователь
+			Issuer: "MyPasswordManager",
+			// идентификатор пользователя
+			AccountName: user.Email,
+		})
+
+		if err := DB.Model(&user).Select("OTPSecret", "OTPEnabled").Updates(User{
+			OTPSecret:  key.Secret(),
+			OTPEnabled: false,
+		}).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{
+			"qr_url": key.URL(),
+		})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func Verificate2FACode(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	var user User
+	if err := DB.Where("id = ?", userIDuuid).First(&user).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+	}
+
+	type Res struct {
+		Code string `json:"code"`
+	}
+	res := new(Res)
+	if err := c.Bind(res); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверные данные"})
+	}
+
+	// проверка пришедшего кода
+	valid := totp.Validate(res.Code, user.OTPSecret)
+
+	if !valid {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный код. Попробуйте еще раз"})
+	}
+
+	// маршрут для проверки под универсальный (для добавления 2FA и для проверки после добавления)
+	DB.Model(&user).Update("OTPEnabled", true)
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "2FA успешно активирована!"})
 }
 
 func AddPasswordHandler(c echo.Context) error {

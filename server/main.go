@@ -44,6 +44,11 @@ func main() {
 	r.POST("/pwd-show", ShowPasswordHandler)
 	r.POST("/pwd-copy", CopyPasswordHandler)
 
+	// получение URL для генерации QR кода для 2FA
+	r.GET("/get-QR-2FA", GetQRFor2FA)
+	// проверяем код для 2FA
+	r.POST("ver-2FA-code", Verificate2FACode)
+
 	// получение списка запросов на получение пароля
 	r.GET("/pwd-acs-req", GetPasswordAccessRequest)
 	// добавление запроса на получение пароля
@@ -56,7 +61,6 @@ func main() {
 	r.POST("/pwd-acs-rej", PasswordAccessReject)
 	// получение публичного ключа по почте
 	r.GET("/get-public-key", GetPublicKey)
-
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

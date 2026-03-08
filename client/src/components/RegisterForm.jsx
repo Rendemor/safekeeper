@@ -9,7 +9,7 @@ import {
     deriveLoginHash
 } from '../utils/crypto'; // импорт функций для шифрования паролей
 
-function RegisterForm() {
+function RegisterForm({setPage}) {
     // объявление переменных состояния
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -55,7 +55,7 @@ function RegisterForm() {
                     master_key_salt: saltString,
                     public_key: exportedPubKey,
                     encrypted_private_key: encryptedPrivKey
-                    }),
+                }),
             });
             
             // тут хранится ответ с сервера
@@ -68,6 +68,7 @@ function RegisterForm() {
                 // очистка полей
                 setEmail(''); 
                 setPassword('');
+                setPage('login')
             // если статус 4.., 5..
             } else { 
                 // вывод ошибки

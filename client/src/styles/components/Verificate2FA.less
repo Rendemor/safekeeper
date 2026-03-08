@@ -1,0 +1,79 @@
+@import '../main.less';
+
+.setup {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+
+    &-title {
+        color: @primary-color;
+        margin-bottom: 25px; // Увеличил отступ, так как нет подзаголовка
+        font-size: 28px;
+    }
+
+    &-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+
+        .form-group {
+            text-align: left;
+
+            &-label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: bold;
+                color: @text-color;
+            }
+
+            &-input {
+                width: 100%;
+                padding: 12px 15px;
+                border: 1px solid @border-color;
+                border-radius: 5px;
+                font-size: 20px;
+                text-align: center;
+                letter-spacing: 2px;
+                box-sizing: border-box;
+
+                &:focus {
+                    border-color: @primary-color;
+                    outline: none;
+                }
+            }
+        }
+    }
+
+    &-button {
+        .button-style();
+        background-color: @primary-color;
+        color: #fff;
+        margin-top: 10px;
+
+        &:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    }
+
+    &-message {
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 5px;
+        font-weight: bold;
+
+        &--error {
+            background-color: lighten(@danger-color, 35%);
+            color: @danger-color;
+        }
+
+        &--success {
+            background-color: lighten(@success-color, 35%);
+            color: @success-color;
+        }
+    }
+}

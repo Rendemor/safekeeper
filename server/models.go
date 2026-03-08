@@ -20,6 +20,10 @@ type User struct {
 	PublicKey string `gorm:"type:text;not null"`
 	// приватный ключ пользователя (RSA), зашифрованный в браузере ключом KEK (на базе мастер-пароля)
 	EncryptedPrivateKey string `gorm:"type:text;not null"`
+	// секретный ключ для генерации кодов для двухфакторной аутентификации
+	OTPSecret string
+	// по идее это временное поле. В идеале его убрать, поскольку 2FA для менеджера паролей это базовый минимум, а не выбор пользователя
+	OTPEnabled bool
 	// время создания аккаунта
 	CreatedAt time.Time
 }
