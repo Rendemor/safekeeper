@@ -1,13 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
+	"gorm.io/gorm"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -50,10 +53,15 @@ func RegisterHandler(c echo.Context) error {
 		EncryptedPrivateKey: req.EncryptedPrivateKey,
 	}
 
-	result := DB.Create(&newUser)
-	if result.Error != nil {
+	if err := DB.Create(&newUser).Error; err != nil {
 		logAudit(c, ActionRegFailed, uuid.Nil)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Пользователь уже существует или ошибка БД"})
+
+		// Проверяем код ошибки PostgreSQL (23505 - уникальный ключ)
+		if strings.Contains(err.Error(), "23505") {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "Пользователь с таким email уже зарегистрирован"})
+		}
+
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка при создании аккаунта"})
 	}
 
 	// функция лдя логирования. Обычно uuid достают из jwt токена, но во время регистрации пользователь ещё не имеет токена, поэтому
@@ -244,21 +252,68 @@ func GetSaltHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"salt": user.MasterKeySalt})
 }
 
-func GetPasswordHandler(c echo.Context) error {
-	userId := getUserId(c)
+func GetSaltByJWT(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
 
-	// поиск всех паролей для пользователя с полученным userIDRaw
-	var passwords []Secret // обязательно указали, что не одна строка, а несколько (несколько паролей)
-	// важно заметить, что теперь используем Find, то есть ищем все записи, а не первую (First)
-	if err := DB.Where("user_id = ?", userId).Find(&passwords).Error; err != nil {
+	var user User
+	// ищем в базе пользователя с таким email
+	if err := DB.Where("id = ?", userIDuuid).First(&user).Error; err != nil {
+		logAudit(c, ActionSaltGetFailed, user.ID)
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+	}
+
+	// соль выдаётся для генерации KEK во время входа, поэтому jwt токена ещё нет
+	logAudit(c, ActionSaltGet, user.ID)
+
+	// возвращаем только соль, больше ничего не надо
+	return c.JSON(http.StatusOK, map[string]string{"salt": user.MasterKeySalt})
+}
+
+func GetPasswordHandler(c echo.Context) error {
+	type UnifiedPassword struct {
+		ID              uuid.UUID `json:"id"`
+		Title           string    `json:"title"`
+		Login           string    `json:"login"`
+		EncryptedData   string    `json:"encrypted_data"`
+		EncryptedDEK    string    `json:"encrypted_dek"`
+		EncryptionNonce string    `json:"encryption_nonce"`
+		OwnerID         uuid.UUID `json:"owner_id"`
+		IsShared        bool      `json:"is_shared"`
+	}
+
+	userId := getUserId(c)
+	var results []UnifiedPassword
+
+	// запрос в виде SQL запроса, а не конструкций из Go
+	// запрос на вид ужасный, но по сути нормальный. Просто создаём (выбором) новую таблицу из первого запроса
+	// потом создаём вторую таблицу. По полям она должна совпадать ну вот 100%, никак иначе
+	// вторая таблица зависит от первой, поэтому наполняется она данными из первой таблицы по условию, что они смотрят на записи по
+	// одному и тому же id. Дальше таблицы склеиваются. Буквально к первой таблице снизу прикрепляется вторая
+	query := `
+        SELECT s.id, s.title, s.login, s.encrypted_data, s.encrypted_dek, s.encryption_nonce, s.user_id as owner_id, false as is_shared
+        FROM secrets s
+        WHERE s.user_id = ?
+        UNION ALL
+        SELECT s.id, s.title, s.login, s.encrypted_data, ss.shared_encrypted_dek as encrypted_dek, s.encryption_nonce, ss.owner_id, true as is_shared
+        FROM shared_secrets ss
+        JOIN secrets s ON ss.secret_id = s.id
+        WHERE ss.recipient_id = ?
+    `
+
+	// запишиваем запрос. userId передаётся дважды (два ? в самом запросе)
+	if err := DB.Raw(query, userId, userId).Scan(&results).Error; err != nil {
 		logAudit(c, ActionPasswordRequestFailed, uuid.Nil)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка при получении списка паролей"})
 	}
 
 	logAudit(c, ActionPasswordRequest, uuid.Nil)
 
-	// одаём результат поиска
-	return c.JSON(http.StatusOK, passwords)
+	// если вдруг нет паролей, то просто отдаём пустой массив
+	if results == nil {
+		results = []UnifiedPassword{}
+	}
+
+	return c.JSON(http.StatusOK, results)
 }
 
 func ShowPasswordHandler(c echo.Context) error {
@@ -291,6 +346,7 @@ func AddPasswordRequest(c echo.Context) error {
 
 	type Res struct {
 		Title string `json:"title"`
+		Login string `json:"login"`
 		// почта того, у кого хотим взять пароль
 		Email string `json:"email"`
 	}
@@ -301,6 +357,7 @@ func AddPasswordRequest(c echo.Context) error {
 	}
 
 	userIDuuidFrom, _ := getUserIDuuid(c)
+
 	// поиск пользователя по email
 	var userTo User
 	if err := DB.Where("email = ?", input.Email).First(&userTo).Error; err != nil {
@@ -311,8 +368,28 @@ func AddPasswordRequest(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
 	}
 	var pwd Secret
-	if err := DB.Where("title = ?", input.Title).First(&pwd).Error; err != nil {
+	if err := DB.Where(
+		"user_id = ? AND title = ? AND login = ?",
+		userTo.ID, input.Title, input.Login).First(&pwd).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Пароля нет"})
+	}
+
+	var exists bool
+	err := DB.Model(&PasswordAccessRequest{}).
+		// делаем булевый запрос. Если записей больше 0, то вернёт 1, иначе 0
+		Select("count(*) > 0").
+		Where(
+			"user_id_from = ? AND user_id_to = ? AND title = ? AND login = ?",
+			userFrom.ID, userTo.ID, input.Title, input.Login).
+		Find(&exists).
+		Error
+
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Ошибка поиска записи"})
+	}
+
+	if exists {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Пароль уже предоставлен"})
 	}
 
 	pwdReq := PasswordAccessRequest{
@@ -333,17 +410,13 @@ func AddPasswordRequest(c echo.Context) error {
 }
 
 func PasswordAccessApprove(c echo.Context) error {
-
 	type Res struct {
-		ID    uuid.UUID `json:"ID"`
-		Title string    `json:"title"`
-		Login string    `json:"Login"`
-		// это данные для того, кто запросил пароль, чтобы он смог расшифровать полученный пароль
-		Encrypted_data   string `json:"encrypted_data"`   // зашифрованный пароль
-		Encryption_nonce string `json:"encryption_nonce"` // IV выступает в роли случайного шума
-		Encrypted_dek    string `json:"encrypted_dek"`    // зашифрованный ключ для этого пароля
-		// пока что не реализовано. Данные передаются, но никак не используются
-		TimeLife time.Time `json:"TimeLife"` // время жизни пароля
+		Title              string    `json:"Title"`
+		SecretID           uuid.UUID `json:"SecretID"`
+		OwnerID            uuid.UUID `json:"OwnerID"`
+		RecipientID        uuid.UUID `json:"RecipientID"`
+		SharedEncryptedDEK string    `json:"SharedEncryptedDEK"`
+		ExpiresAt          time.Time `json:"ExpiresAt"`
 	}
 
 	res := new(Res)
@@ -351,24 +424,50 @@ func PasswordAccessApprove(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
 	}
 
+	var exists bool
+	err := DB.Model(&SharedSecret{}).
+		// делаем булевый запрос. Если записей больше 0, то вернёт 1, иначе 0
+		Select("count(*) > 0").
+		Where("secret_id = ? AND owner_id = ? AND recipient_id = ?", res.SecretID, res.OwnerID, res.RecipientID).
+		Find(&exists).
+		Error
+
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Ошибка поиска записи"})
+	}
+
+	if exists {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Пароль уже предоставлен"})
+	}
+
+	// проверка на то, что пользователь делится паролем сам с собой. Это надо, поскольку таблицу с общими паролями
+	// нельзя сделал unique ни одно поле
+	err = DB.Model(&Secret{}).
+		// делаем булевый запрос. Если записей больше 0, то вернёт 1, иначе 0
+		Select("count(*) > 0").
+		Where("id = ? AND user_id = ?", res.SecretID, res.RecipientID).
+		Find(&exists).
+		Error
+
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Ошибка поиска записи"})
+	}
+
+	if exists {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Нельзя делиться паролем с самим собой"})
+	}
+
 	var user User
-	if err := DB.Where("id = ?", res.ID).First(&user).Error; err != nil {
+	if err := DB.Where("id = ?", res.RecipientID).First(&user).Error; err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
 	}
 
-	pwd := Secret{
-		// владелец пароля
-		UserID: res.ID,
-		// название сервиса
-		Title: res.Title,
-		// логин (лучше сделать шифрование, но пока без него)
-		Login: res.Login,
-		// сам зашифрованный пароль (зашифрован ключом DEK)
-		EncryptedData: res.Encrypted_data,
-		// зашифрованный ключ DEK (зашифрован публичным ключом RSA)
-		EncryptedDEK: res.Encrypted_dek,
-		// техническая строка для алгоритма шифрования AES-GCM
-		EncryptionNonce: res.Encryption_nonce,
+	pwd := SharedSecret{
+		SecretID:           res.SecretID,
+		OwnerID:            res.OwnerID,
+		RecipientID:        res.RecipientID,
+		SharedEncryptedDEK: res.SharedEncryptedDEK,
+		ExpiresAt:          &res.ExpiresAt,
 	}
 
 	// добавляем запрошенный пароль пользователю, который запросил его
@@ -377,14 +476,16 @@ func PasswordAccessApprove(c echo.Context) error {
 	}
 
 	// удаляем запрос на получение пароля
-	if err := DB.Where("user_id_from = ? AND title = ?", res.ID, res.Title).Delete(&PasswordAccessRequest{}).Error; err != nil {
+	if err := DB.Where(
+		"user_id_from = ? AND user_id_to = ? AND title = ?",
+		res.RecipientID, res.OwnerID, res.Title).Delete(&PasswordAccessRequest{}).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка удаления старой записи"})
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
 
-func GetOnePwd(c echo.Context) error {
+func GetOneDEK(c echo.Context) error {
 	userIDuuid, _ := getUserIDuuid(c)
 
 	// вытаскиваем параметр title из URL
@@ -403,8 +504,18 @@ func GetOnePwd(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь или пароль не найдены"})
 	}
 
+	type Res struct {
+		ID       uuid.UUID `json:"id"`
+		Owner_ID uuid.UUID `json:"owner_id"`
+		Enc_dek  string    `json:"enc_dek"`
+	}
+
 	// отправляем пароль клиенту. Пароль зашифрован. Без ключей (получили при логине), пароль теоретически невозможно взломать
-	return c.JSON(http.StatusOK, pwd)
+	return c.JSON(http.StatusOK, Res{
+		ID:       pwd.ID,
+		Owner_ID: pwd.UserID,
+		Enc_dek:  pwd.EncryptedDEK,
+	})
 }
 
 func PasswordAccessReject(c echo.Context) error {
@@ -442,4 +553,117 @@ func GetPublicKey(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, user)
+}
+
+func VerifyOwner(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	var user User
+	if err := DB.Where("id = ?", userIDuuid).First(&user).Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+	}
+
+	hash := c.QueryParam("hash")
+
+	// хэшируем полученный пароль при входе и сравниваем хеш с тем, который лежит в базе
+	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(hash))
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "неверный пароль"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func EditPassword(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	type Req struct {
+		ID            uuid.UUID `json:"id"`
+		Title         string    `json:"title"`
+		Login         string    `json:"login"`
+		EncryptedData string    `json:"encrypted_data"`
+		EncryptedDEK  string    `json:"encrypted_dek"`
+		Nonce         string    `json:"encryption_nonce"`
+		SharedKeys    []struct {
+			RecipientID  string `json:"recipient_id"`
+			EncryptedDEK string `json:"encrypted_dek"`
+		} `json:"shared_dek"`
+	}
+	req := new(Req)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
+	fmt.Println(req.ID)
+
+	return DB.Transaction(func(tx *gorm.DB) error {
+		// обновление основного пароля
+		if err := tx.Debug().Model(&Secret{}).Where("id = ?", req.ID).Updates(Secret{
+			Title:           req.Title,
+			Login:           req.Login,
+			EncryptedData:   req.EncryptedData,
+			EncryptedDEK:    req.EncryptedDEK,
+			EncryptionNonce: req.Nonce,
+			UpdatedAt:       time.Now(),
+		}).Error; err != nil {
+			return err
+		}
+
+		// обновление ключей в расшаренной таблице
+		for _, k := range req.SharedKeys {
+			err := tx.Exec(`
+			INSERT INTO shared_secrets (secret_id, recipient_id, shared_encrypted_dek, owner_id, created_at)
+			VALUES (?, ?, ?, ?, NOW())
+			ON CONFLICT (secret_id, recipient_id) 
+			DO UPDATE SET shared_encrypted_dek = EXCLUDED.shared_encrypted_dek`,
+				req.ID, k.RecipientID, k.EncryptedDEK, userIDuuid).Error //
+			if err != nil {
+				return err
+			}
+		}
+
+		return c.NoContent(http.StatusNoContent)
+	})
+}
+
+func GetRecipientKeys(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	type Req struct {
+		Title string `json:"Title"`
+		Login string `json:"login"`
+	}
+
+	req := new(Req)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
+
+	var pwd Secret
+	if err := DB.Where(
+		"user_id = ? and title = ? and login = ?",
+		userIDuuid, req.Title, req.Login).
+		First(&pwd).
+		Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пароль не найден"})
+	}
+
+	query := `
+		SELECT u.id, u.email, u.public_key
+        FROM users u 
+        JOIN shared_secrets ss ON u.id = ss.recipient_id
+        WHERE ss.secret_id = ?
+    `
+
+	type RecipientKey struct {
+		ID        string `json:"id"`
+		Email     string `json:"email"`
+		PublicKey string `json:"public_key"`
+	}
+
+	var keys []RecipientKey
+	if err := DB.Raw(query, pwd.ID).Scan(&keys).Error; err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пароль не найден"})
+	}
+
+	return c.JSON(http.StatusOK, keys)
 }

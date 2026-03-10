@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import '../styles/components/PwdReq.less'; // импорт стилей для формы
+import React, { useState } from 'react'
+import '../styles/components/PwdReq.less' // импорт стилей для формы
 
 function ReqPwd() {
     // объявление переменных состояния
-    const [email, setEmail] = useState(''); // почта пользователя, у которого запрашивается пароль 
-    const [site, setSite] = useState(''); // название ресурса от которого нужен пароль
-    const [message, setMessage] = useState(''); 
-    const [isError, setIsError] = useState(false);
+    const [email, setEmail] = useState('') // почта пользователя, у которого запрашивается пароль 
+    const [site, setSite] = useState('') // название ресурса от которого нужен пароль
+    const [login, setLogin] = useState('')
+    const [message, setMessage] = useState('') 
+    const [isError, setIsError] = useState(false)
     
     const handleSubmit = async (e) => {
-        e.preventDefault(); // запрет перезагрузки, чтобы страница не моргала
+        e.preventDefault() // запрет перезагрузки, чтобы страница не моргала
 
         try {
-            
             // указываем куда отправить данные
             const response = await fetch('http://localhost:8080/pwd-req', {
                 method: 'POST',
@@ -23,6 +23,7 @@ function ReqPwd() {
                 },
                 body: JSON.stringify({ 
                     title: site, // название сайта
+                    login: login,
                     email: email, // логин от сайта 
                  }),
             })
@@ -38,11 +39,11 @@ function ReqPwd() {
                 setIsError(true)
             }
         } catch (error) {
-            console.error('Ошибка сети или сервера:', error);
-            setMessage('Не удалось подключиться к серверу.');
-            setIsError(true);
+            console.error('Ошибка сети или сервера:', error)
+            setMessage('Не удалось подключиться к серверу.')
+            setIsError(true)
         }
-    };
+    }
 
     return (
         <div className="add">
@@ -58,6 +59,17 @@ function ReqPwd() {
                         onChange={(e) => setSite(e.target.value)}
                         required
                         placeholder="например, VK или Google"
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label className="form-group-label">Логин</label>
+                    <input
+                        type="text"
+                        className="form-group-input"
+                        value={login} 
+                        onChange={(e) => setLogin(e.target.value)}
+                        required
                     />
                 </div>
 
@@ -83,7 +95,7 @@ function ReqPwd() {
                 </p>
             )}
         </div>
-    );
+    )
 }
 
-export default ReqPwd;
+export default ReqPwd

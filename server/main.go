@@ -54,13 +54,21 @@ func main() {
 	// добавление запроса на получение пароля
 	r.POST("/pwd-req", AddPasswordRequest)
 	// указываем в запросе title. В body запихнуть нельзя, у GET запроса не может быть body
-	r.GET("/get-one-pwd", GetOnePwd)
+	r.GET("/get-one-dek", GetOneDEK)
 	// маршрут для ободрения пароля. Будет выдан пароль другому пользователю
 	r.POST("/pwd-acs-appr", PasswordAccessApprove)
 	// отклонение запроса на получение пароля
 	r.POST("/pwd-acs-rej", PasswordAccessReject)
 	// получение публичного ключа по почте
 	r.GET("/get-public-key", GetPublicKey)
+	// проверка пользователя на то, что именно владелец перед экраном
+	r.GET("/verify-owner", VerifyOwner)
+	// та же соль, что и раньше, но по jwt токену
+	r.GET("get-salt-jwt", GetSaltByJWT)
+	// меняем пароль
+	r.PUT("pwd-edit", EditPassword)
+	// получение всех публичных ключей пользователей, которые имеют тот или иной расшаренный пароль
+	r.POST("get-rec-keys", GetRecipientKeys)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

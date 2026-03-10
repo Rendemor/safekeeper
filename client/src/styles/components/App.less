@@ -1,0 +1,89 @@
+@import "../main.less";
+
+// Оставляем базу для всего экрана
+html, body {
+  height: 100%;
+  margin: 0;
+  background-color: @background-color;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: @background-color;
+
+  header {
+    background: #fff;
+    border-bottom: 1px solid @border-color;
+    
+    nav {
+      max-width: 1200px;
+      margin: 0 auto;
+      height: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+
+      ul {
+        display: flex;
+        list-style: none;
+        gap: 15px;
+        margin: 0;
+        padding: 0;
+
+        li button {
+          .button-style();
+          background-color: @primary-color;
+          color: #fff;
+          font-size: 14px;
+        }
+      }
+
+      .logout {
+        .button-style();
+        background-color: @danger-color;
+        color: #fff;
+      }
+    }
+  }
+
+main {
+    flex: 1;
+    .flex-center(); 
+    width: 100%;
+
+    section {
+      // ВОТ ЗДЕСЬ корректируем размер формы
+      width: 50%; // или 30% - сколько тебе нужно для красоты
+      display: flex;
+      flex-direction: column;
+      
+      // Чтобы всё, что внутри (LoginForm, RegisterForm), слушалось этого размера
+      & > div {
+        width: 100%;
+      }
+
+      // Наводим марафет в надписи снизу
+      p {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 14px;
+        color: @secondary-color;
+
+        button {
+          background: none;
+          border: none;
+          padding: 0;
+          margin-left: 5px;
+          color: @primary-color;
+          font-weight: bold;
+          cursor: pointer;
+          
+          &:hover { text-decoration: underline; }
+        }
+      }
+    }
+  }
+}

@@ -3,7 +3,8 @@ import '../styles/components/SharePassword.less'; // импорт стилей �
 import {useCrypto} from '../context/CryptoContext'
 import {
     encryptData,
-    decryptData
+    decryptData,
+    shareKey,
 } from '../utils/crypto'
 
 function SharePassword() {
@@ -13,6 +14,7 @@ function SharePassword() {
     const [site, setSite] = useState(''); // название сайта 
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
+    const [time, setTime] = useState('0')
     
     // достаем публичный ключ из "облака", чтобы зашифровать данные
     const {privateKey} = useCrypto();
@@ -21,17 +23,28 @@ function SharePassword() {
         e.preventDefault()
 
         try {
-            var res = await fetch(
-                `http://localhost:8080/get-one-pwd?title=${encodeURIComponent(site)}&login=${encodeURIComponent(login)}`, {
+            const pwd = await fetch(
+                `http://localhost:8080/get-one-dek?title=${encodeURIComponent(site)}&login=${encodeURIComponent(login)}`, {
                     method:'GET',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
                     }
                 }                
             )
-            const encryptPwd = await res.json()
 
-            res = await fetch(
+            const {
+                enc_dek: encDEK,
+                id: ID,
+                owner_id: ownerID
+            } = await pwd.json()
+
+            // превращаем время в объект "Дата"
+            const dateObject = new Date(time)
+            // превращаем в формат "2026-03-08T13:30:00.000Z"
+            const formattedTime = dateObject.toISOString()
+
+            // получаем публичный ключ пользователя, которому даём пароль
+            const res = await fetch(
                 `http://localhost:8080/get-public-key?email=${encodeURIComponent(email)}`, {
                     method:'GET',
                     headers: {
@@ -41,20 +54,11 @@ function SharePassword() {
             )
             const otherUser = await res.json()
             const publicKeyOtherUser = otherUser.PublicKey
-            console.log(publicKeyOtherUser)
 
-            const decPwd = await decryptData(
-                        encryptPwd.EncryptedData, 
-                        encryptPwd.EncryptedDEK, 
-                        encryptPwd.EncryptionNonce, 
-                        privateKey)
-            
-            // шифруем пароль публичным ключом человека, которому даём пароль
-            const encPwd = await encryptData(decPwd, publicKeyOtherUser)
+            // расшифровываем DEK и одновременно шифруем другим ключом 
+            const alianEncDEK = await shareKey(encDEK, privateKey, publicKeyOtherUser)
 
-            const targetTime = new Date(Date.now() + 1 * 1000);
-            const isoTimeString = targetTime.toISOString(); // формат: "2023-01-01T14:30:00.000Z"
-            
+            // передаём пароль другому пользователю
             const response = await fetch("http://localhost:8080/pwd-acs-appr", {
                 method: 'POST',
                 headers: {
@@ -62,14 +66,16 @@ function SharePassword() {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`,
                 },
                 body: JSON.stringify({
-                    ID: otherUser.ID, // ID пользователя, который запросил пароль
                     Title: site,
-                    Login: login,
-                    // это данные для того, кто запросил пароль, чтобы он смог расшифровать полученный пароль
-                    encrypted_data: encPwd.encrypted_content, // зашифрованный пароль
-                    encryption_nonce: encPwd.iv, // IV выступает в роли случайного шума
-                    encrypted_dek: encPwd.encrypted_dek, // зашифрованный ключ для этого пароля
-                    TimeLife: isoTimeString // время жизни пароля
+                    // ID пароля из таблицы паролей
+                    SecretID: ID,
+                    // ID владельца пароля
+                    OwnerID: ownerID,
+                    // ID пользователя, который имеет к нему доступ
+                    RecipientID: otherUser.ID,
+                    // DEK, зашифрованный публичным ключом нового владельца
+                    SharedEncryptedDEK: alianEncDEK,
+                    ExpiresAt: formattedTime,
                 })
             })
 
@@ -79,8 +85,9 @@ function SharePassword() {
                 setEmail('')
                 setMessage('Пароль отправлен')
                 setIsError(false)
+
             } else {
-                setMessage('Ошибка добавления проля')
+                setMessage('Ошибка выдачи проля')
                 setIsError(true)
             }
 

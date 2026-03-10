@@ -17,21 +17,41 @@ function LoginForm({setPage, setOTPEnable}) {
     // получаем перменные состояния из useCrypto, где хранятся ключи
     const { setPrivateKey, setPublicKey, setIsAuthenticated } = useCrypto()
 
+    const getSalt = async (e) => {
+        try {
+            // получаем соль с сервера. Запрос идёт на get-salt. Дальше идёт ?, который означает "дальше идут дополнительные параметры"
+            // в качестве дополнительных параметров я указал почту, чтобы сервер смог найти пользователя в БД и отправить соль
+            const res = await fetch(`http://localhost:8080/get-salt?email=${email}`)
+            
+            // сначала парсим JSON, независимо от статуса
+            const data = await res.json()
+
+            if (!res.ok) {
+                // тут data будет содержать {"error": "Пользователь не найден"}
+                console.error("Сервер вернул ошибку:", data.error)
+                alert(data.error) 
+                return
+            }
+            return data
+        } catch (err) {
+            // сюда попадем, если сервер вообще недоступен или JSON сломан
+            console.error("Сетевая ошибка:", err)
+        }
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault() // заперт перезагрузки, чтобы страница не моргала после отправки данных
 
         // временно выводим сообщение. Статус ошибки пишем false, если вдруг до этого был true
-        setMessage('Регистрация...')
+        setMessage('Вход...')
         setIsError(false)
 
         try {
-            // получаем соль с сервера. Запрос идёт на get-salt. Дальше идёт ?, который означает "дальше идут дополнительные параметры"
-            // в качестве дополнительных параметров я указал почту, чтобы сервер смог найти пользователя в БД и отправить соль
-            const saltRes = await fetch(`http://localhost:8080/get-salt?email=${email}`)
-            const { salt: saltBase64 } = await saltRes.json()
+            const { salt: saltBase64 } = await getSalt()
             
             // перевод соли из base64 обратно в байты
             const salt = new Uint8Array(atob(saltBase64).split("").map(c => c.charCodeAt(0)))
+
 
             // на основе пароля генерируем LoginHash и KEK. Ну KEK не нужен, но просто для проверки можно посчитать и посмотреть 
             // что получилось
@@ -76,7 +96,7 @@ function LoginForm({setPage, setOTPEnable}) {
             }
         } catch (error) {
             console.error('Ошибка сети или сервера:', error)
-            setMessage('Не удалось подключиться к серверу. Проверьте соединение.')
+            setMessage('Ошибка')
             setIsError(true)
         }
     }

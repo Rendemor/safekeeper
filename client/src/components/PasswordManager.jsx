@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import '../styles/components/PasswordManager.less'; 
 import { useCrypto } from '../context/CryptoContext';
 import { decryptData } from '../utils/crypto';
+import ConfirmModal from '../components/ConfirmModal'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
-const PasswordRow = ({ item, privateKey }) => {
+const PasswordRow = ({ item, privateKey, onEdit }) => {
     const [decryptedPassword, setDecryptedPassword] = useState('********');
     const [isShown, setIsShown] = useState(false);
 
@@ -13,12 +14,27 @@ const PasswordRow = ({ item, privateKey }) => {
 
         // дефивруем пароль и возвращаем его
         return await decryptData(
-            item.EncryptedData, 
-            item.EncryptedDEK, 
-            item.EncryptionNonce, 
+            item.encrypted_data, 
+            item.encrypted_dek, 
+            item.encryption_nonce, 
             privateKey
         );
     };
+
+    const handleEdit = async () => {
+        // проверка на то, что пытаемся изменить чужой пароль. На всякий случай сделал проверку, хотя кнопку не рисую в таких случаях
+        if(item.is_shared) {
+            alert('Чужой пароль изменять нелья')
+            return 
+        }
+
+        const decrypted_password = await getPlainPassword()
+
+        onEdit({
+            ...item, 
+            decrypted_password: decrypted_password
+        })
+    }
 
     // функция для показывания или скрытия пароля
     const handleToggleShow = async () => {
@@ -35,11 +51,6 @@ const PasswordRow = ({ item, privateKey }) => {
                         'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
                     }
                 });
-
-                
-                console.log('Тип encryptedData:', typeof pass)
-                console.log('Содержимое encryptedData:', pass) 
-
             } catch (err) {
                 console.error("Ошибка расшифровки:", err);
                 setDecryptedPassword("Ошибка!");
@@ -76,8 +87,8 @@ const PasswordRow = ({ item, privateKey }) => {
 
     return (
         <tr>
-            <td>{item.Title}</td>
-            <td>{item.Login}</td>
+            <td>{item.title}</td>
+            <td>{item.login}</td>
             <td>
                 <input 
                     type={isShown ? "text" : "password"} 
@@ -94,15 +105,46 @@ const PasswordRow = ({ item, privateKey }) => {
                 <button className="vault-copy-btn" onClick={handleCopy}>
                     Копировать
                 </button>
+
+                {!item.is_shared && (
+                    <button className="vault-copy-btn" onClick={handleEdit}>
+                        Изменить
+                    </button>
+                )}
+
             </td>
         </tr>
     );
 };
 
-function PasswordManager() {
+function PasswordManager( {onEdit} ) {
     const [passwords, setPasswords] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [pendingItem, setPendingItem] = useState(null); // Тут лежит пароль, который ждет подтверждения
     // достаём приватный ключ для расшифровки полученных паролей
     const { privateKey } = useCrypto();
+
+    // передаёт элемент в модалку
+    const handleStartEdit = (item) => {
+        setPendingItem(item);
+        setIsModalOpen(true);  
+    };
+
+    // если нажали ок в модалке
+    const handleConfirmSuccess = async () => {
+        setIsModalOpen(false); 
+        
+        // расшифровка
+        const decrypted = await decryptData(
+            pendingItem.encrypted_data, 
+            pendingItem.encrypted_dek, 
+            pendingItem.encryption_nonce, 
+            privateKey
+        );
+
+        // передаём пароль выше по иерархии (в app). Дальше там вызывается редактирование
+        onEdit({ ...pendingItem, decrypted_password: decrypted });
+    };
 
     const fetchPasswords = async () => {
         // передаю jwt токен для определения пользователя
@@ -146,6 +188,8 @@ function PasswordManager() {
                             key={item.ID} 
                             item={item} 
                             privateKey={privateKey} 
+                            // передаём вызовы модалки в кажый item, чтобы к каждой кнопке привязать
+                            onEdit={handleStartEdit}
                         />
                     ))}
                 </tbody>
@@ -153,6 +197,14 @@ function PasswordManager() {
             
             {/* надо потом добавить переход на форму */}
             <button className="vault-add-btn">+ Добавить пароль</button>
+
+            
+            {isModalOpen && (
+                <ConfirmModal 
+                    onConfirm={handleConfirmSuccess} 
+                    onCancel={() => setIsModalOpen(false)} 
+                />
+            )}
         </div>
     );
 }

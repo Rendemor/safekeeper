@@ -9,7 +9,16 @@ import (
 )
 
 func getUserId(c echo.Context) string {
-	userToken := c.Get("user").(*jwt.Token)
+	val := c.Get("user")
+	if val == nil {
+		// если токена нет, то возвращаем пустую строку
+		return ""
+	}
+
+	userToken, ok := val.(*jwt.Token)
+	if !ok {
+		return ""
+	}
 	claims := userToken.Claims.(jwt.MapClaims)
 
 	userId, ok := claims["user_id"].(string)
@@ -44,17 +53,18 @@ func logAudit(c echo.Context, action ActionCode, manualUUID uuid.UUID) {
 	// данные браузера пользователя
 	ua := c.Request().UserAgent()
 
-	newLog := AuditLog{
-		UserID:    manualUUID,
-		Action:    string(action),
-		IPAddress: ip,
-		UserAgent: ua,
-	}
+	// оборачиваем запись лога в БД в анонимную функцию и запускаем горутину
+	go func(uID uuid.UUID, act string, userIP string, userAgent string) {
+		newLog := AuditLog{
+			UserID:    uID,
+			Action:    act,
+			IPAddress: userIP,
+			UserAgent: userAgent,
+		}
 
-	// добавляем лог. Возвращается ошибка (или nil, если ошибки не было)
-	err := DB.Create(&newLog).Error
-
-	if err != nil {
-		fmt.Printf("Ошибка аудита: %v\n", err)
-	}
+		// запрос в БД. Запущен в отедльной горутине. Пользователь не ждёт запись лога в БД
+		if err := DB.Create(&newLog).Error; err != nil {
+			fmt.Printf("Ошибка асинхронного аудита: %v\n", err)
+		}
+	}(manualUUID, string(action), ip, ua)
 }

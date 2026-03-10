@@ -1,61 +1,40 @@
 import React, { useEffect, useState } from 'react'
 import '../styles/components/ReqPwdForm.less'
-import { decryptData, encryptData } from '../utils/crypto'
-import { useCrypto } from '../context/CryptoContext'
+import { 
+    shareKey
+} from '../utils/crypto'
+import { 
+    useCrypto,
+} from '../context/CryptoContext'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
 const ReqRow = ({ item, onUpdate }) => {
     const [time, setTime] = useState('0')
     const { privateKey } = useCrypto()
 
-    // получение пароля из строки
-    const getPlainPassword = async (data) => {
-
-        // дефивруем пароль и возвращаем его
-        return decryptData(
-            data.EncryptedData, 
-            data.EncryptedDEK, 
-            data.EncryptionNonce, 
-            privateKey
-        );
-    };
-
     // даём доступ
     const handleGrantAccess = async (e) => {
 
         // запрашиваем конкретный пароль, чтобы зашифровать его и отправить другому пользователю
         const pwd = await fetch(
-            `http://localhost:8080/get-one-pwd?title=${encodeURIComponent(item.Title)}`, {
+            `http://localhost:8080/get-one-dek?title=${encodeURIComponent(item.Title)}&login=${encodeURIComponent(item.Login)}`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
             },
         })
 
-        const data = await pwd.json()
+        const {
+            enc_dek: encDEK,
+            id: ID
+        } = await pwd.json()
 
-        console.log(privateKey)
-        // расшифровали пароль
-        const decPwd = await getPlainPassword(data)
+        const alianEncDEK = await shareKey(encDEK, privateKey, item.PublicKey)
 
-        // console.log(decPwd)
-        
-console.log('Тип encryptedData:', typeof data);
-console.log('Содержимое encryptedData:', data);
-console.log('Тип encryptedData:', typeof decPwd);
-console.log('Содержимое encryptedData:', decPwd);
-
-        const encryptedData = await encryptData(decPwd, item.PublicKey)
-
-        // непонятные преобразования в формат как на сервере
-        // преобразуем time (в минутах/секундах) в дату RFC3339
-        const timeInSeconds = parseInt(time, 10); // убедимся, что time — число
-        if (isNaN(timeInSeconds)) {
-            console.error('Неверный формат времени: time должен быть числом');
-            return;
-        }
-        const targetTime = new Date(Date.now() + timeInSeconds * 1000);
-        const isoTimeString = targetTime.toISOString(); // формат: "2023-01-01T14:30:00.000Z"
+        // превращаем время в объект "Дата"
+        const dateObject = new Date(time)
+        // превращаем в формат "2026-03-08T13:30:00.000Z"
+        const formattedTime = dateObject.toISOString()
 
         const response = await fetch("http://localhost:8080/pwd-acs-appr", {
             method: 'POST',
@@ -64,22 +43,22 @@ console.log('Содержимое encryptedData:', decPwd);
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
             },
             body: JSON.stringify({
-                ID: item.UserIDFrom, // ID пользователя, который запросил пароль
                 Title: item.Title,
-                Login: item.Login,
-                // это данные для того, кто запросил пароль, чтобы он смог расшифровать полученный пароль
-                encrypted_data: encryptedData.encrypted_content, // зашифрованный пароль
-                encryption_nonce: encryptedData.iv, // IV выступает в роли случайного шума
-                encrypted_dek: encryptedData.encrypted_dek, // зашифрованный ключ для этого пароля
-                TimeLife: isoTimeString // время жизни пароля
+                // ID пароля из таблицы паролей
+                SecretID: ID,
+                // ID владельца пароля
+                OwnerID: item.UserIDTo,
+                // ID пользователя, который имеет к нему доступ
+                RecipientID: item.UserIDFrom,
+                // DEK, зашифрованный публичным ключом нового владельца
+                SharedEncryptedDEK: alianEncDEK,
+                ExpiresAt: formattedTime,
             })
         })
 
         if(response.ok) {
             onUpdate()
-        } else {
-           alert("Ошибка при выдаче доступа") 
-        }
+        }   
     }
 
     // отклоняем
@@ -117,7 +96,7 @@ console.log('Содержимое encryptedData:', decPwd);
             </td>
             <td>
                 <input 
-                    type="time"   
+                    type="datetime-local"
                     className="form-group-input"   
                     value={time}
                     onChange={(e) => setTime(e.target.value)}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import './/styles/components/App.less'
 import LoginForm from './components/LoginForm'
 import RegisterForm from './components/RegisterForm'
 import PasswordManager from './components/PasswordManager'
@@ -8,14 +9,25 @@ import PwdReq from './components/PwdReq'
 import SharePassword from './components/SharePassword'
 import Setup2FA from './components/Setup2FA'
 import Verificate2FA from './components/Verificate2FA'
+import EditPassword from './components/EditPassword'
 import { useCrypto } from './context/CryptoContext'
 
 function App() { 
   const [page, setPage] = useState('login') // переключение между формами
   const [OTPEnable, setOTPEnable] = useState(false)
-  const [is2FAVerified, setIs2FAVerified] = useState(false) // Новый флаг: прошел ли юзер проверку прямо сейчас
+  const [is2FAVerified, setIs2FAVerified] = useState(false) // прошел ли пользователь проверку прямо сейчас
+  // хранит выбранный проль для передачи его в компонент edit
+  const [selectedPassword, setSelectedPassword] = useState(null)
   
   const { privateKey, isAuthenticated, setIsAuthenticated, logout } = useCrypto()
+
+
+  const handleEditClick = (pwd) => {
+    // сохраняем данные пароля
+    setSelectedPassword(pwd)
+    // меняем компонент отрисовки
+    setPage('pwd-edit')         
+  }
 
   // проверка состояния сессии при загрузке или изменении ключа
   useEffect(() => {
@@ -59,8 +71,17 @@ function App() {
         case 'pwd-acs-req': return <AcsReqPwdForm />
         case 'pwd-req': return <PwdReq />
         case 'pwd-share': return <SharePassword /> 
+        case 'pwd-edit': 
+        return <EditPassword  
+          existingData={selectedPassword} 
+          onSave={() => {
+            setPage('vault')
+            setSelectedPassword(null)
+          }}
+          onCancel={() => setPage('vault')}
+        />
         case 'vault':
-        default: return <PasswordManager />
+        default: return <PasswordManager onEdit={handleEditClick} />
       }
     }
 
@@ -85,26 +106,29 @@ function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className="app">
       {isAuthenticated && (
-        <div className="nav-menu">
-          {/* Кнопка выхода видна ВСЕГДА */}
-          <p><button className="logout-button" onClick={handleLogout}>Выйти</button></p>
-          
-          {/* Кнопки управления появляются ТОЛЬКО если 2FA настроена И пройдена проверка кода */}
-          {OTPEnable && is2FAVerified && (
-            <>
-              <p><button onClick={() => setPage('add')}>Добавить пароль</button></p>
-              <p><button onClick={() => setPage('vault')}>Менеджер паролей</button></p>
-              <p><button onClick={() => setPage('pwd-acs-req')}>Запросы паролей</button></p>
-              <p><button onClick={() => setPage('pwd-share')}>Поделиться паролем</button></p>
-              <p><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></p>
-            </>
-          )}
-        </div>
+        <header>
+          <nav>
+            {OTPEnable && is2FAVerified && (
+              <ul>
+                <li><button onClick={() => setPage('vault')}>Менеджер</button></li>
+                <li><button onClick={() => setPage('add')}>Добавить</button></li>
+                <li><button onClick={() => setPage('pwd-share')}>Поделиться</button></li>
+                <li><button onClick={() => setPage('pwd-req')}>Запросить</button></li>
+                <li><button onClick={() => setPage('pwd-acs-req')}>Входящие</button></li>
+              </ul>
+            )}
+            <button className="logout" onClick={handleLogout}>Выйти</button>
+          </nav>
+        </header>
       )}
       
-      {renderContent()}
+      <main>
+        <section>
+          {renderContent()}
+        </section>
+      </main>
     </div>
   )
 }

@@ -75,3 +75,21 @@ type PasswordAccessRequest struct {
 	PublicKey string `gorm:"type:text;not null"`
 	CreatedAt time.Time
 }
+
+type SharedSecret struct {
+	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	// Кто поделился (владелец)
+	OwnerID uuid.UUID `gorm:"type:uuid;not null"`
+
+	// Ссылка на оригинальный секрет и кому дали доступ. Важно, это зависимые поля. Такая связка строго уникальна
+	SecretID    uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_secret_recipient"`
+	RecipientID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_secret_recipient"`
+
+	// КРИТИЧНО: DEK, перешифрованный публичным ключом ПОЛУЧАТЕЛЯ
+	// Оригинальный EncryptedDEK из таблицы Secret получатель расшифровать не сможет!
+	SharedEncryptedDEK string `gorm:"type:text;not null"`
+
+	// Время истечения доступа (nil, если бессрочно)
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+}
