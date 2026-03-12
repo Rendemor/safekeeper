@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -593,11 +592,10 @@ func EditPassword(c echo.Context) error {
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
 	}
-	fmt.Println(req.ID)
 
 	return DB.Transaction(func(tx *gorm.DB) error {
 		// обновление основного пароля
-		if err := tx.Debug().Model(&Secret{}).Where("id = ?", req.ID).Updates(Secret{
+		if err := tx.Model(&Secret{}).Where("id = ?", req.ID).Updates(Secret{
 			Title:           req.Title,
 			Login:           req.Login,
 			EncryptedData:   req.EncryptedData,
@@ -666,4 +664,68 @@ func GetRecipientKeys(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, keys)
+}
+
+func PwdDelOwner(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	type Req struct {
+		ID    uuid.UUID `json:"id"`
+		Title string    `json:"title"`
+		Login string    `json:"login"`
+	}
+
+	req := new(Req)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
+
+	// запускаем транзакицю. Либо удаляем всё, либо ничего
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var secret Secret
+
+		// находим id удаляемого пароля
+		if err := tx.Select("id").Where("user_id = ? AND title = ? AND login = ?",
+			userIDuuid, req.Title, req.Login).First(&secret).Error; err != nil {
+			return echo.NewHTTPError(http.StatusNotFound, "Пароль не найден")
+		}
+
+		if secret.ID != req.ID {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Ошибка удаления"})
+		}
+
+		// удаляем пароль из таблицы расшаренных паролей
+		if err := tx.Where("secret_id = ?", secret.ID).Delete(&SharedSecret{}).Error; err != nil {
+			return err
+		}
+
+		// удаляем оригинальный пароль. Конкретную таблицу не указал, потому что secret переменная типа Secret. GROM сам подтянул
+		// название нужной переменной
+		if err := tx.Delete(&secret).Error; err != nil {
+			return err
+		}
+
+		return c.NoContent(http.StatusNoContent)
+	})
+}
+
+func PwdDelShare(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
+
+	type Req struct {
+		ID    uuid.UUID `json:"id"`
+		Title string    `json:"title"`
+		Login string    `json:"login"`
+	}
+
+	req := new(Req)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+	}
+
+	if err := DB.Where("secret_id = ? AND recipient_id = ?", req.ID, userIDuuid).Delete(&SharedSecret{}).Error; err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }

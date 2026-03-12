@@ -4,9 +4,10 @@ import {
     deriveLoginHash,
 } from '../utils/crypto'
 
-function ConfirmModal({ onConfirm, onCancel }) {
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+function ConfirmModal({ title, onConfirm, onCancel }) {
+    
+    const [password, setPassword] = useState('')
+    const [error, setError] = useState('')
 
     // соль через jwt
     const getSalt = async (e) => {
@@ -53,7 +54,7 @@ function ConfirmModal({ onConfirm, onCancel }) {
         })
 
         if(loginRes.ok) {
-            onConfirm()
+            onConfirm(true)
         } else {
             setError('Неверный мастер-пароль')
         }
@@ -64,7 +65,7 @@ function ConfirmModal({ onConfirm, onCancel }) {
             {/* Остановка всплытия, чтобы клик по самой модалке её не закрывал */}
             <div className="confirm-content" onClick={(e) => e.stopPropagation()}>
                 <h3 className="confirm-title">Подтвердите личность</h3>
-                <p className="confirm-text">Введите мастер-пароль для доступа к редактированию</p>
+                <p className="confirm-text">Введите мастер-пароль для доступа к паролю {title}</p>
                 
                 <form onSubmit={handleSubmit} className="confirm-form">
                     <input 

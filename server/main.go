@@ -70,5 +70,10 @@ func main() {
 	// получение всех публичных ключей пользователей, которые имеют тот или иной расшаренный пароль
 	r.POST("get-rec-keys", GetRecipientKeys)
 
+	// удаление оригинального пароля
+	r.POST("pwd-del-owner", PwdDelOwner)
+	// удаление расшаренного пароля
+	r.POST("pwd-del-share", PwdDelShare)
+
 	e.Logger.Fatal(e.Start(":8080"))
 }
