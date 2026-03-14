@@ -22,3 +22,8 @@ const (
 	ActionSaltGet       ActionCode = "salt_get"
 	ActionSaltGetFailed ActionCode = "salt_get_fali"
 )
+
+// структура для отправки ошибок в формате JSON
+type APIError struct {
+	Error string `json:"error"`
+}

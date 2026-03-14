@@ -6,6 +6,7 @@ import {
     decryptPrivateKey
 } from '../utils/crypto' // импорт функций для шифрования паролей
 import { useCryptoStore } from '../utils/store'
+import { authAPI } from '../api/auth'
 
 // указываем функцию, кооторую можно вызывать внутри LoginForm, при этом сама функция внешняя 
 function LoginForm({setPage, setOTPEnable}) {
@@ -19,28 +20,6 @@ function LoginForm({setPage, setOTPEnable}) {
     const setPublicKey = useCryptoStore((state) => state.setPublicKey)
     const setIsAuthenticated = useCryptoStore((state) => state.setIsAuthenticated)  
 
-    const getSalt = async (e) => {
-        try {
-            // получаем соль с сервера. Запрос идёт на get-salt. Дальше идёт ?, который означает "дальше идут дополнительные параметры"
-            // в качестве дополнительных параметров я указал почту, чтобы сервер смог найти пользователя в БД и отправить соль
-            const res = await fetch(`http://localhost:8080/get-salt?email=${email}`)
-            
-            // сначала парсим JSON, независимо от статуса
-            const data = await res.json()
-
-            if (!res.ok) {
-                // тут data будет содержать {"error": "Пользователь не найден"}
-                console.error("Сервер вернул ошибку:", data.error)
-                alert(data.error) 
-                return
-            }
-            return data
-        } catch (err) {
-            // сюда попадем, если сервер вообще недоступен или JSON сломан
-            console.error("Сетевая ошибка:", err)
-        }
-    }
-
     const handleSubmit = async (e) => {
         e.preventDefault() // заперт перезагрузки, чтобы страница не моргала после отправки данных
 
@@ -49,56 +28,38 @@ function LoginForm({setPage, setOTPEnable}) {
         setIsError(false)
 
         try {
-            const { salt: saltBase64 } = await getSalt()
-            
-            // перевод соли из base64 обратно в байты
-            const salt = new Uint8Array(atob(saltBase64).split("").map(c => c.charCodeAt(0)))
-
+            // получили соль через API
+            const salt = await authAPI.getSalt(email)
 
             // на основе пароля генерируем LoginHash и KEK. Ну KEK не нужен, но просто для проверки можно посчитать и посмотреть 
             // что получилось
             const loginHash = await deriveLoginHash(password, salt)
             const kek = await deriveMasterKey(password, salt)
 
-            // отправка loginHash на проверку
-            const loginRes = await fetch('http://localhost:8080/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password: loginHash })
-            })
+            const payload = { email, password: loginHash }
 
-            const data = await loginRes.json()
+            // отправляем запрос на проверку хэша
+            const data = await authAPI.login(payload)
 
-            // если статут 2.., то это успех.
-            if (loginRes.ok) {
-                // сохранение токена в браузере (localStorage)
-                setMessage("Вы вошли успешно!")
-                setIsError(false)
+            // сохранение токена в браузере (localStorage)
+            setMessage("Вы вошли успешно!")
+            setIsError(false)
 
-                // console.log("Данные с сервера:", data) // логирование
+            // внутри handleLogin после успешного ответа от сервера
+            const { token, encrypted_private_key, public_key, otp_enabled } = data
 
-                // внутри handleLogin после успешного ответа от сервера
-                const { token, encrypted_private_key, public_key, otp_enabled } = data
+            // зная kek, расшифровываем приватный ключ, который получили от сервера
+            const privateKey = await decryptPrivateKey(encrypted_private_key, kek)
 
-                // зная kek, расшифровываем приватный ключ, который получили от сервера
-                const privateKey = await decryptPrivateKey(encrypted_private_key, kek)
-
-                // сохраняем ключи в контексте (в памяти)
-                setPrivateKey(privateKey)
-                setPublicKey(public_key)
-                localStorage.setItem('token', token)
-                setIsAuthenticated(true)
-                setPage('ver-2FA')
-                setOTPEnable(otp_enabled)
-            // если статус 4.., 5..
-            } else { 
-                // вывод ошибки
-                setMessage(data.error || 'Произошла ошибка при регистрации.')
-                setIsError(true)
-            }
-        } catch (error) {
-            console.error('Ошибка сети или сервера:', error)
-            setMessage('Ошибка')
+            // сохраняем ключи в контексте (в памяти)
+            setPrivateKey(privateKey)
+            setPublicKey(public_key)
+            localStorage.setItem('token', token)
+            setIsAuthenticated(true)
+            setPage('ver-2FA')
+            setOTPEnable(otp_enabled)
+        } catch (err) {
+            setMessage(err.message || 'Произошла ошибка')
             setIsError(true)
         }
     }

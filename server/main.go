@@ -21,61 +21,62 @@ func main() {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
+	// объединил маршруты в группу по смыслу
+	auth := e.Group("api/auth")
 	// настройка маршрута к созданию пользователя. Сначала указываем маршрут. Если на него приходит POST запрос, то запускается
 	// функция RegisterHandler
-	e.POST("/register", RegisterHandler)
+	auth.POST("/register", RegisterHandler)
 	// маршрут для входа
-	e.POST("/login", LoginHandler)
+	auth.POST("/login", LoginHandler)
 	// маршрут для получения соли
-	e.GET("/get-salt", GetSaltHandler)
+	auth.GET("/get-salt", GetSaltHandler)
 
 	// защищённые маршруты. Без jwt токена к ним доступа нет
 	// создаем группу маршрутов, которые требуют JWT токен
-	r := e.Group("")
-
+	private := e.Group("api/private")
 	// подключаем Middleware. Оно будет проверять заголовок Authorization: Bearer <token>
 	// если токена нет или он с ошибкой, то к функциям ниже доступа просто нет
-	r.Use(echojwt.JWT(jwtSecret))
+	private.Use(echojwt.JWT(jwtSecret))
 
-	r.GET("/refresh-jwt", RefreshJWT)
+	private.GET("/refresh-jwt", RefreshJWT)
 
 	// маршрут для добавления пароля теперь внутри защищенной группы
-	r.POST("/add-pass", AddPasswordHandler)
-	r.GET("/get-pass", GetPasswordHandler)
+	private.POST("/add-pass", AddPasswordHandler)
+	private.GET("/get-pass", GetPasswordHandler)
 
-	r.POST("/pwd-show", ShowPasswordHandler)
-	r.POST("/pwd-copy", CopyPasswordHandler)
+	private.POST("/pwd-show", ShowPasswordHandler)
+	private.POST("/pwd-copy", CopyPasswordHandler)
 
 	// получение URL для генерации QR кода для 2FA
-	r.GET("/get-QR-2FA", GetQRFor2FA)
+	private.GET("/get-QR-2FA", GetQRFor2FA)
 	// проверяем код для 2FA
-	r.POST("ver-2FA-code", Verificate2FACode)
+	private.POST("/ver-2FA-code", Verificate2FACode)
 
 	// получение списка запросов на получение пароля
-	r.GET("/pwd-acs-req", GetPasswordAccessRequest)
+	private.GET("/pwd-acs-req", GetPasswordAccessRequest)
 	// добавление запроса на получение пароля
-	r.POST("/pwd-req", AddPasswordRequest)
+	private.POST("/pwd-req", AddPasswordRequest)
 	// указываем в запросе title. В body запихнуть нельзя, у GET запроса не может быть body
-	r.GET("/get-one-dek", GetOneDEK)
-	// маршрут для ободрения пароля. Будет выдан пароль другому пользователю
-	r.POST("/pwd-acs-appr", PasswordAccessApprove)
+	private.GET("/get-one-dek", GetOneDEK)
+	// маршрут для обodрения пароля. Будет выдан пароль другому пользователю
+	private.POST("/pwd-acs-appr", PasswordAccessApprove)
 	// отклонение запроса на получение пароля
-	r.POST("/pwd-acs-rej", PasswordAccessReject)
+	private.POST("/pwd-acs-rej", PasswordAccessReject)
 	// получение публичного ключа по почте
-	r.GET("/get-public-key", GetPublicKey)
+	private.GET("/get-public-key", GetPublicKey)
 	// проверка пользователя на то, что именно владелец перед экраном
-	r.GET("/verify-owner", VerifyOwner)
+	private.GET("/verify-owner", VerifyOwner)
 	// та же соль, что и раньше, но по jwt токену
-	r.GET("get-salt-jwt", GetSaltByJWT)
+	private.GET("/get-salt-jwt", GetSaltByJWT)
 	// меняем пароль
-	r.PUT("pwd-edit", EditPassword)
+	private.PUT("/pwd-edit", EditPassword)
 	// получение всех публичных ключей пользователей, которые имеют тот или иной расшаренный пароль
-	r.POST("get-rec-keys", GetRecipientKeys)
+	private.POST("/get-rec-keys", GetRecipientKeys)
 
 	// удаление оригинального пароля
-	r.POST("pwd-del-owner", PwdDelOwner)
+	private.POST("/pwd-del-owner", PwdDelOwner)
 	// удаление расшаренного пароля
-	r.POST("pwd-del-share", PwdDelShare)
+	private.POST("/pwd-del-share", PwdDelShare)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

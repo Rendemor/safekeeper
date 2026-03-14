@@ -83,19 +83,18 @@ func LoginHandler(c echo.Context) error {
 	input := new(LoginInput)
 
 	if err := c.Bind(input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверные данные"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверные данные"})
 	}
 
 	// поиск пользователя по email
 	var user User
 	if err := DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пользователь не найден"})
 	}
 
 	// хэшируем полученный пароль при входе и сравниваем хеш с тем, который лежит в базе
-	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password))
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "неверный пароль"})
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "неверный пароль"})
 	}
 
 	accessToken := getJWTaccess(user.ID)
@@ -104,13 +103,13 @@ func LoginHandler(c echo.Context) error {
 	ta, err := accessToken.SignedString(jwtSecret)
 	if err != nil {
 		logAudit(c, ActionLoginFailed, user.ID)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка генерации токена"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка генерации токена"})
 	}
 
 	tf, err := refreshToken.SignedString(jwtSecret)
 	if err != nil {
 		logAudit(c, ActionLoginFailed, user.ID)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка генерации токена"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка генерации токена"})
 	}
 
 	cookie := new(http.Cookie)
@@ -120,7 +119,7 @@ func LoginHandler(c echo.Context) error {
 	cookie.HttpOnly = true
 	cookie.Secure = true
 	// указываю куда эта кука будет отправляться. То есть она прикрепляется только к запросу на указанный маршрут
-	cookie.Path = "/refresh-jwt"
+	cookie.Path = "api/private/refresh-jwt"
 	cookie.SameSite = http.SameSiteStrictMode
 
 	c.SetCookie(cookie)
@@ -150,7 +149,7 @@ func GetQRFor2FA(c echo.Context) error {
 
 	var user User
 	if err := DB.Where("id = ?", userID).First(&user).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пользователь не найден"})
 	}
 
 	if user.OTPSecret == "" || user.OTPEnabled == false {
@@ -166,7 +165,7 @@ func GetQRFor2FA(c echo.Context) error {
 			OTPSecret:  key.Secret(),
 			OTPEnabled: false,
 		}).Error; err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+			return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка сохранения в БД"})
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{
@@ -182,7 +181,7 @@ func Verificate2FACode(c echo.Context) error {
 
 	var user User
 	if err := DB.Where("id = ?", userIDuuid).First(&user).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пользователь не найден"})
 	}
 
 	type Res struct {
@@ -190,20 +189,20 @@ func Verificate2FACode(c echo.Context) error {
 	}
 	res := new(Res)
 	if err := c.Bind(res); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверные данные"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверные данные"})
 	}
 
 	// проверка пришедшего кода
 	valid := totp.Validate(res.Code, user.OTPSecret)
 
 	if !valid {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный код. Попробуйте еще раз"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный код. Попробуйте еще раз"})
 	}
 
 	// маршрут для проверки под универсальный (для добавления 2FA и для проверки после добавления)
 	DB.Model(&user).Update("OTPEnabled", true)
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "2FA успешно активирована!"})
+	return c.JSON(http.StatusOK, APIError{Error: "2FA успешно активирована!"})
 }
 
 func AddPasswordHandler(c echo.Context) error {
@@ -218,12 +217,12 @@ func AddPasswordHandler(c echo.Context) error {
 
 	input := new(PasswordInput)
 	if err := c.Bind(input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	userIDuuid, err := getUserIDuuid(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат ID"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат ID"})
 	}
 
 	// сохраняем данные в структуру как в БД
@@ -238,7 +237,7 @@ func AddPasswordHandler(c echo.Context) error {
 
 	if err := DB.Create(&newSecret).Error; err != nil {
 		logAudit(c, ActionPasswordCreateFailed, uuid.Nil)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка сохранения в БД"})
 	}
 
 	logAudit(c, ActionPasswordCreate, uuid.Nil)
@@ -254,7 +253,7 @@ func GetSaltHandler(c echo.Context) error {
 	// ищем в базе пользователя с таким email
 	if err := DB.Where("email = ?", email).First(&user).Error; err != nil {
 		logAudit(c, ActionSaltGetFailed, user.ID)
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пользователь не найден"})
 	}
 
 	// соль выдаётся для генерации KEK во время входа, поэтому jwt токена ещё нет
@@ -271,7 +270,7 @@ func GetSaltByJWT(c echo.Context) error {
 	// ищем в базе пользователя с таким email
 	if err := DB.Where("id = ?", userIDuuid).First(&user).Error; err != nil {
 		logAudit(c, ActionSaltGetFailed, user.ID)
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пользователь не найден"})
 	}
 
 	// соль выдаётся для генерации KEK во время входа, поэтому jwt токена ещё нет
@@ -315,7 +314,7 @@ func GetPasswordHandler(c echo.Context) error {
 	// запишиваем запрос. userId передаётся дважды (два ? в самом запросе)
 	if err := DB.Raw(query, userId, userId).Scan(&results).Error; err != nil {
 		logAudit(c, ActionPasswordRequestFailed, uuid.Nil)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка при получении списка паролей"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка при получении списка паролей"})
 	}
 
 	logAudit(c, ActionPasswordRequest, uuid.Nil)
@@ -348,7 +347,7 @@ func GetPasswordAccessRequest(c echo.Context) error {
 	var pwdRequest []PasswordAccessRequest
 
 	if err := DB.Where("user_id_to = ?", userIDuuid).Find(&pwdRequest).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка базы данных"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка базы данных"})
 	}
 
 	return c.JSON(http.StatusOK, pwdRequest)
@@ -365,7 +364,7 @@ func AddPasswordRequest(c echo.Context) error {
 
 	input := new(Res)
 	if err := c.Bind(input); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	userIDuuidFrom, _ := getUserIDuuid(c)
@@ -373,17 +372,17 @@ func AddPasswordRequest(c echo.Context) error {
 	// поиск пользователя по email
 	var userTo User
 	if err := DB.Where("email = ?", input.Email).First(&userTo).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пользователь не найден"})
 	}
 	var userFrom User
 	if err := DB.Where("id = ?", userIDuuidFrom).First(&userFrom).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пользователь не найден"})
 	}
 	var pwd Secret
 	if err := DB.Where(
 		"user_id = ? AND title = ? AND login = ?",
 		userTo.ID, input.Title, input.Login).First(&pwd).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Пароля нет"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Пароля нет"})
 	}
 
 	var exists bool
@@ -397,11 +396,11 @@ func AddPasswordRequest(c echo.Context) error {
 		Error
 
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Ошибка поиска записи"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Ошибка поиска записи"})
 	}
 
 	if exists {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Пароль уже предоставлен"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пароль уже предоставлен"})
 	}
 
 	pwdReq := PasswordAccessRequest{
@@ -415,7 +414,7 @@ func AddPasswordRequest(c echo.Context) error {
 
 	// отправляем запрос пароля в БД
 	if err := DB.Create(&pwdReq).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка сохранения в БД"})
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -433,7 +432,7 @@ func PasswordAccessApprove(c echo.Context) error {
 
 	res := new(Res)
 	if err := c.Bind(res); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	var exists bool
@@ -445,11 +444,11 @@ func PasswordAccessApprove(c echo.Context) error {
 		Error
 
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Ошибка поиска записи"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Ошибка поиска записи"})
 	}
 
 	if exists {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Пароль уже предоставлен"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пароль уже предоставлен"})
 	}
 
 	// проверка на то, что пользователь делится паролем сам с собой. Это надо, поскольку таблицу с общими паролями
@@ -462,16 +461,16 @@ func PasswordAccessApprove(c echo.Context) error {
 		Error
 
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Ошибка поиска записи"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Ошибка поиска записи"})
 	}
 
 	if exists {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Нельзя делиться паролем с самим собой"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Нельзя делиться паролем с самим собой"})
 	}
 
 	var user User
 	if err := DB.Where("id = ?", res.RecipientID).First(&user).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пользователь не найден"})
 	}
 
 	pwd := SharedSecret{
@@ -484,14 +483,14 @@ func PasswordAccessApprove(c echo.Context) error {
 
 	// добавляем запрошенный пароль пользователю, который запросил его
 	if err := DB.Create(&pwd).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка сохранения в БД"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка сохранения в БД"})
 	}
 
 	// удаляем запрос на получение пароля
 	if err := DB.Where(
 		"user_id_from = ? AND user_id_to = ? AND title = ?",
 		res.RecipientID, res.OwnerID, res.Title).Delete(&PasswordAccessRequest{}).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка удаления старой записи"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка удаления старой записи"})
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -503,17 +502,17 @@ func GetOneDEK(c echo.Context) error {
 	// вытаскиваем параметр title из URL
 	title := c.QueryParam("title")
 	if title == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Не указано название"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Не указано название"})
 	}
 	login := c.QueryParam("login")
 	if login == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Не указан логин"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Не указан логин"})
 	}
 
 	// нашли нужный пароль
 	var pwd Secret
 	if err := DB.Where("title = ? AND login = ? AND user_id = ?", title, login, userIDuuid).First(&pwd).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь или пароль не найдены"})
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пользователь или пароль не найдены"})
 	}
 
 	type Res struct {
@@ -540,14 +539,14 @@ func PasswordAccessReject(c echo.Context) error {
 
 	res := new(Res)
 	if err := c.Bind(res); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	if err := DB.Where(
 		"user_id_from = ? AND user_id_to = ? AND title = ?",
 		res.ID, userIDto, res.Title).Delete(&PasswordAccessRequest{}).Error; err != nil {
 
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка удаления старой записи"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка удаления старой записи"})
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -556,12 +555,12 @@ func PasswordAccessReject(c echo.Context) error {
 func GetPublicKey(c echo.Context) error {
 	email := c.QueryParam("email")
 	if email == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный email"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный email"})
 	}
 
 	var user User
 	if err := DB.Where("email = ?", email).First(&user).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пользователь не найден"})
 	}
 
 	return c.JSON(http.StatusOK, user)
@@ -572,7 +571,7 @@ func VerifyOwner(c echo.Context) error {
 
 	var user User
 	if err := DB.Where("id = ?", userIDuuid).First(&user).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пользователь не найден"})
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пользователь не найден"})
 	}
 
 	hash := c.QueryParam("hash")
@@ -580,7 +579,7 @@ func VerifyOwner(c echo.Context) error {
 	// хэшируем полученный пароль при входе и сравниваем хеш с тем, который лежит в базе
 	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(hash))
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "неверный пароль"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "неверный пароль"})
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -603,7 +602,7 @@ func EditPassword(c echo.Context) error {
 	}
 	req := new(Req)
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	return DB.Transaction(func(tx *gorm.DB) error {
@@ -646,7 +645,7 @@ func GetRecipientKeys(c echo.Context) error {
 
 	req := new(Req)
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	var pwd Secret
@@ -655,7 +654,7 @@ func GetRecipientKeys(c echo.Context) error {
 		userIDuuid, req.Title, req.Login).
 		First(&pwd).
 		Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пароль не найден"})
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пароль не найден"})
 	}
 
 	query := `
@@ -673,7 +672,7 @@ func GetRecipientKeys(c echo.Context) error {
 
 	var keys []RecipientKey
 	if err := DB.Raw(query, pwd.ID).Scan(&keys).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Пароль не найден"})
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пароль не найден"})
 	}
 
 	return c.JSON(http.StatusOK, keys)
@@ -690,7 +689,7 @@ func PwdDelOwner(c echo.Context) error {
 
 	req := new(Req)
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	// запускаем транзакицю. Либо удаляем всё, либо ничего
@@ -704,7 +703,7 @@ func PwdDelOwner(c echo.Context) error {
 		}
 
 		if secret.ID != req.ID {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Ошибка удаления"})
+			return c.JSON(http.StatusBadRequest, APIError{Error: "Ошибка удаления"})
 		}
 
 		// удаляем пароль из таблицы расшаренных паролей
@@ -733,17 +732,67 @@ func PwdDelShare(c echo.Context) error {
 
 	req := new(Req)
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверный формат данных"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
 	if err := DB.Where("secret_id = ? AND recipient_id = ?", req.ID, userIDuuid).Delete(&SharedSecret{}).Error; err != nil {
-		return err
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка удаления"})
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
 
 func RefreshJWT(c echo.Context) error {
+	cookie, err := c.Cookie("refresh_token")
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Refresh token not found"})
+	}
 
-	return c.NoContent(http.StatusNoContent)
+	claims, err := parseJWT(cookie.Value, string(jwtSecret))
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Invalid refresh token"})
+	}
+
+	userID, ok := (*claims)["user_id"].(string)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "invalid token claims"})
+	}
+
+	var user User
+	if err := DB.First(&user, userID).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Пользователь удален"})
+	}
+
+	accessToken := getJWTaccess(user.ID)
+	refreshToken := getJWTrefresh(user.ID)
+
+	ta, err := accessToken.SignedString(jwtSecret)
+	if err != nil {
+		logAudit(c, ActionLoginFailed, user.ID)
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка генерации токена"})
+	}
+
+	tf, err := refreshToken.SignedString(jwtSecret)
+	if err != nil {
+		logAudit(c, ActionLoginFailed, user.ID)
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка генерации токена"})
+	}
+
+	newCookie := new(http.Cookie)
+	newCookie.Name = "refresh_token"
+	newCookie.Value = tf
+	newCookie.Expires = time.Now().Add(time.Hour * 24 * 7)
+	newCookie.HttpOnly = true
+	newCookie.Secure = true
+	// указываю куда эта кука будет отправляться. То есть она прикрепляется только к запросу на указанный маршрут
+	newCookie.Path = "api/private/refresh-jwt"
+	newCookie.SameSite = http.SameSiteStrictMode
+
+	c.SetCookie(newCookie)
+
+	type Res struct {
+		Token string `json:"token"`
+	}
+
+	return c.JSON(http.StatusOK, Res{Token: ta})
 }

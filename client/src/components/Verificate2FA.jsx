@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import '../styles/components/Verificate2FA.less'
+import { privateAPI } from '../api/private'
 
 function Verificate2FA ( {setPage, setIs2FAVerified} ) {
     const [code, setCode] = useState('')
@@ -10,26 +11,16 @@ function Verificate2FA ( {setPage, setIs2FAVerified} ) {
         e.preventDefault()
         setIsError(false)
 
-        const res = await fetch('http://localhost:8080/ver-2FA-code', {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-            body: JSON.stringify ({
-                code: code
-            })
-        })
-
-        if(res.ok) {
-            setIsError(false)
+        try {
+            await privateAPI.Ver2FA({code})
             setMessage("Подключение 2FA прошло успешно")
             setIs2FAVerified(true)
-            setPage('vault')
-        } else {
+            setPage('vault')}
+        catch (err) {
+            setMessage(err.message || 'Произошла ошибка')
             setIsError(true)
-            setMessage("Ошибка подключения 2FA")
         }
+
     }
 
     return (

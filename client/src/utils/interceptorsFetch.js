@@ -7,15 +7,16 @@ export const interceptorsFetch = async (url, options = {}, retryCount = 0) => {
     // пробуем обновить токен только один раз
     if (response.status === 401 && retryCount < 1) { 
         // creditials означает подключить куки к запросу, чтобы сервер смог найти refresh токен
-        const refreshRes = await fetch('/refresh-jwt', { method: 'GET', credentials: 'include' })
+        const refreshRes = await fetch('http://localhost:8080/api/private/refresh-jwt', { method: 'GET', credentials: 'include' })
 
         if (refreshRes.ok) {
             const data = await refreshRes.json()
-            localStorage.setItem('access_token', data.access_token)
+            localStorage.setItem('token', data.token)
 
+            // обновляем заголовок. Кладём новый токен в Authorization для повторного запроса
             options.headers = {
                 ...options.headers,
-                'Authorization': `Bearer ${data.access_token}`
+                'Authorization': `Bearer ${data.token}`
             }
 
             return interceptorsFetch(url, options, retryCount + 1)
