@@ -3,14 +3,12 @@ import '../styles/components/ReqPwdForm.less'
 import { 
     shareKey
 } from '../utils/crypto'
-import { 
-    useCrypto,
-} from '../context/CryptoContext'
+import {useCryptoStore} from '../utils/store'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
 const ReqRow = ({ item, onUpdate }) => {
     const [time, setTime] = useState('0')
-    const { privateKey } = useCrypto()
+    const privateKey = useCryptoStore((state) => state.privateKey)
 
     // даём доступ
     const handleGrantAccess = async (e) => {

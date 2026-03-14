@@ -4,16 +4,13 @@ import ReactDOM from 'react-dom/client'
 import './styles/main.less' 
 import './styles/_reset.less' 
 import App from './App.js'
-import { CryptoProvider } from './context/CryptoContext'
 import { ModalProvider } from './context/ModalContext'
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 root.render(
   <React.StrictMode>
-    <CryptoProvider>
-      <ModalProvider>
-        <App />
-      </ModalProvider>
-    </CryptoProvider>
+    <ModalProvider>
+      <App />
+    </ModalProvider>
   </React.StrictMode>
 )

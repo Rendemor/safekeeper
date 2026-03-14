@@ -1,23 +1,23 @@
-import React, { useState } from 'react';
-import '../styles/components/SharePassword.less'; // импорт стилей для формы
-import {useCrypto} from '../context/CryptoContext'
+import React, { useState } from 'react'
+import '../styles/components/SharePassword.less' // импорт стилей для формы
+import {useCryptoStore} from '../utils/store'
 import {
     encryptData,
     decryptData,
     shareKey,
 } from '../utils/crypto'
 
-function SharePassword() {
+function SharePassword({setPage, item}) {
     // объявление переменных состояния
-    const [login, setLogin] = useState(''); // логин от стороннего сайта 
-    const [email, setEmail] = useState(''); // пароль от стороннего сайта
-    const [site, setSite] = useState(''); // название сайта 
-    const [message, setMessage] = useState('');
-    const [isError, setIsError] = useState(false);
+    const [login, setLogin] = useState(item?.login || '') // логин от стороннего сайта 
+    const [email, setEmail] = useState('') // пароль от стороннего сайта
+    const [site, setSite] = useState(item?.title || '') // название сайта 
+    const [message, setMessage] = useState('')
+    const [isError, setIsError] = useState(false)
     const [time, setTime] = useState('0')
     
     // достаем публичный ключ из "облака", чтобы зашифровать данные
-    const {privateKey} = useCrypto();
+    const privateKey = useCryptoStore((state) => state.privateKey)
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -85,18 +85,18 @@ function SharePassword() {
                 setEmail('')
                 setMessage('Пароль отправлен')
                 setIsError(false)
-
+                setPage('vault')
             } else {
                 setMessage('Ошибка выдачи проля')
                 setIsError(true)
             }
 
         } catch (error) {
-            console.error('Ошибка сети или сервера:', error);
-            setMessage('Не удалось подключиться к серверу.');
-            setIsError(true);
+            console.error('Ошибка сети или сервера:', error)
+            setMessage('Не удалось подключиться к серверу.')
+            setIsError(true)
         }
-    };
+    }
 
     return (
         <div className="add">
@@ -148,7 +148,7 @@ function SharePassword() {
                 </p>
             )}
         </div>
-    );
+    )
 }
 
-export default SharePassword;
+export default SharePassword

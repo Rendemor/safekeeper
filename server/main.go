@@ -34,8 +34,10 @@ func main() {
 	r := e.Group("")
 
 	// подключаем Middleware. Оно будет проверять заголовок Authorization: Bearer <token>
-	// если токена нет или он с ошибой, то к функциям ниже доступа просто нет
+	// если токена нет или он с ошибкой, то к функциям ниже доступа просто нет
 	r.Use(echojwt.JWT(jwtSecret))
+
+	r.GET("/refresh-jwt", RefreshJWT)
 
 	// маршрут для добавления пароля теперь внутри защищенной группы
 	r.POST("/add-pass", AddPasswordHandler)

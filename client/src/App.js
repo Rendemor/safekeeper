@@ -10,7 +10,7 @@ import SharePassword from './components/SharePassword'
 import Setup2FA from './components/Setup2FA'
 import Verificate2FA from './components/Verificate2FA'
 import EditPassword from './components/EditPassword'
-import { useCrypto } from './context/CryptoContext'
+import { useCryptoStore } from './utils/store'
 
 function App() { 
   const [page, setPage] = useState('login') // переключение между формами
@@ -18,15 +18,24 @@ function App() {
   const [is2FAVerified, setIs2FAVerified] = useState(false) // прошел ли пользователь проверку прямо сейчас
   // хранит выбранный проль для передачи его в компонент edit
   const [selectedPassword, setSelectedPassword] = useState(null)
-  
-  const { privateKey, isAuthenticated, setIsAuthenticated, logout } = useCrypto()
 
+  const logout = useCryptoStore((state) => state.logout)
+  const isAuthenticated = useCryptoStore((state) => state.isAuthenticated)
+  const setIsAuthenticated = useCryptoStore((state) => state.setIsAuthenticated)
+  const privateKey = useCryptoStore((state) => state.privateKey)
 
   const handleEditClick = (pwd) => {
     // сохраняем данные пароля
     setSelectedPassword(pwd)
     // меняем компонент отрисовки
     setPage('pwd-edit')         
+  }
+
+  const handleShareClick = (pwd) => {
+      // сохраняем данные пароля
+    setSelectedPassword(pwd)
+    // меняем компонент отрисовки
+    setPage('pwd-share')         
   }
 
   // проверка состояния сессии при загрузке или изменении ключа
@@ -70,7 +79,7 @@ function App() {
         case 'add': return <AddPassword />
         case 'pwd-acs-req': return <AcsReqPwdForm />
         case 'pwd-req': return <PwdReq />
-        case 'pwd-share': return <SharePassword /> 
+        case 'pwd-share': return <SharePassword setPage={setPage} item={selectedPassword} /> 
         case 'pwd-edit': 
         return <EditPassword  
           existingData={selectedPassword} 
@@ -81,7 +90,7 @@ function App() {
           onCancel={() => setPage('vault')}
         />
         case 'vault':
-        default: return <PasswordManager onEdit={handleEditClick} />
+        default: return <PasswordManager onEdit={handleEditClick} onShare={handleShareClick} />
       }
     }
 

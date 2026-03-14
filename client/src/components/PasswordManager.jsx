@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import '../styles/components/PasswordManager.less' 
-import { useCrypto } from '../context/CryptoContext'
 import { decryptData } from '../utils/crypto'
 import ConfirmModal from '../components/ConfirmModal'
 import { useModal } from '../context/ModalContext'
+import {useCryptoStore} from '../utils/store'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
-const PasswordRow = ({ item, privateKey, onEdit }) => {
+const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
     const [decryptedPassword, setDecryptedPassword] = useState('********')
     const [isShown, setIsShown] = useState(false)
     const { openModal, closeModal } = useModal()
@@ -171,9 +171,15 @@ const PasswordRow = ({ item, privateKey, onEdit }) => {
                 </button>
 
                 {!item.is_shared && (
-                    <button className="vault-copy-btn" onClick={handleEdit}>
-                        Изменить
-                    </button>
+                    <div>
+                        <button className="vault-copy-btn" onClick={() => onShare(item)}>
+                            Поделиться
+                        </button>
+
+                        <button className="vault-copy-btn" onClick={handleEdit}>
+                            Изменить
+                        </button>
+                    </div>
                 )}
 
                 <button className="vault-del-btn" onClick={() => handleDel(item)}>
@@ -185,12 +191,12 @@ const PasswordRow = ({ item, privateKey, onEdit }) => {
     )
 }
 
-function PasswordManager( {onEdit} ) {
+function PasswordManager( {onEdit, onShare} ) {
     const [passwords, setPasswords] = useState([])
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [pendingItem, setPendingItem] = useState(null) // Тут лежит пароль, который ждет подтверждения
     // достаём приватный ключ для расшифровки полученных паролей
-    const { privateKey } = useCrypto()
+    const privateKey = useCryptoStore((state) => state.privateKey)
     const [verify, setVerify] = useState(false)
     // отлавливаем состояние, когда удаляем пароль
     const [pwdDel, setPwdDel] = useState(false)
@@ -245,6 +251,7 @@ function PasswordManager( {onEdit} ) {
                             privateKey={privateKey} 
                             // передаём вызовы модалки в кажый item, чтобы к каждой кнопке привязать
                             onEdit={onEdit}
+                            onShare={onShare}
                         />
                     ))}
                 </tbody>

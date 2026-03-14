@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
@@ -99,21 +98,36 @@ func LoginHandler(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "неверный пароль"})
 	}
 
-	// создаём jwt токен, чтобы автоматически входить в систему
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(), // 3 дня (фактически он просто удаляется после обноваления страницы, но
-		// пусть будет 3 дня. Базовый минимум)
-	})
+	accessToken := getJWTaccess(user.ID)
+	refreshToken := getJWTrefresh(user.ID)
 
-	t, err := token.SignedString(jwtSecret)
+	ta, err := accessToken.SignedString(jwtSecret)
 	if err != nil {
 		logAudit(c, ActionLoginFailed, user.ID)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка генерации токена"})
 	}
 
+	tf, err := refreshToken.SignedString(jwtSecret)
+	if err != nil {
+		logAudit(c, ActionLoginFailed, user.ID)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка генерации токена"})
+	}
+
+	cookie := new(http.Cookie)
+	cookie.Name = "refresh_token"
+	cookie.Value = tf
+	cookie.Expires = time.Now().Add(time.Hour * 24 * 7)
+	cookie.HttpOnly = true
+	cookie.Secure = true
+	// указываю куда эта кука будет отправляться. То есть она прикрепляется только к запросу на указанный маршрут
+	cookie.Path = "/refresh-jwt"
+	cookie.SameSite = http.SameSiteStrictMode
+
+	c.SetCookie(cookie)
+
 	logAudit(c, ActionLoginSuccess, user.ID)
 
+	// отправляем оба токена сразу
 	type LoginResponse struct {
 		Message             string `json:"message"`
 		Token               string `json:"token"`
@@ -122,10 +136,9 @@ func LoginHandler(c echo.Context) error {
 		OTPEnabled          bool   `json:"otp_enabled"`
 	}
 
-	// В самом обработчике:
 	return c.JSON(http.StatusOK, LoginResponse{
 		Message:             "Вход выполнен!",
-		Token:               t,
+		Token:               ta,
 		PublicKey:           user.PublicKey,
 		EncryptedPrivateKey: user.EncryptedPrivateKey,
 		OTPEnabled:          user.OTPEnabled,
@@ -726,6 +739,11 @@ func PwdDelShare(c echo.Context) error {
 	if err := DB.Where("secret_id = ? AND recipient_id = ?", req.ID, userIDuuid).Delete(&SharedSecret{}).Error; err != nil {
 		return err
 	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func RefreshJWT(c echo.Context) error {
 
 	return c.NoContent(http.StatusNoContent)
 }

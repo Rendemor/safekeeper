@@ -5,7 +5,7 @@ import {
     deriveLoginHash,
     decryptPrivateKey
 } from '../utils/crypto' // импорт функций для шифрования паролей
-import { useCrypto } from '../context/CryptoContext' 
+import { useCryptoStore } from '../utils/store'
 
 // указываем функцию, кооторую можно вызывать внутри LoginForm, при этом сама функция внешняя 
 function LoginForm({setPage, setOTPEnable}) {
@@ -14,8 +14,10 @@ function LoginForm({setPage, setOTPEnable}) {
     const [password, setPassword] = useState('')
     const [message, setMessage] = useState('')
     const [isError, setIsError] = useState(false)
-    // получаем перменные состояния из useCrypto, где хранятся ключи
-    const { setPrivateKey, setPublicKey, setIsAuthenticated } = useCrypto()
+
+    const setPrivateKey = useCryptoStore((state) => state.setPrivateKey)
+    const setPublicKey = useCryptoStore((state) => state.setPublicKey)
+    const setIsAuthenticated = useCryptoStore((state) => state.setIsAuthenticated)  
 
     const getSalt = async (e) => {
         try {

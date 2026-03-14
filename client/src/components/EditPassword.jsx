@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 import '../styles/components/EditPassword.less' // импорт стилей для формы
-import {useCrypto} from '../context/CryptoContext'
+import {useCryptoStore} from '../utils/store'
 import {
     encryptData,
     shareKey
@@ -21,9 +21,9 @@ function EditPassword({existingData, onSave, onCancel}) {
 
     const oldTitle = initialValues.current.title
     const oldLogin = initialValues.current.login
-    
-    // достаем публичный ключ из "облака", чтобы зашифровать данные
-    const {publicKey, privateKey} = useCrypto()
+
+    const publicKey = useCryptoStore((state) => state.publicKey)
+    const privateKey = useCryptoStore((state) => state.privateKey)
 
     // запрашиваем все публичные ключи людей, у который есть доступ к моему паролю
     const reqPublicKeys = async (e) => {

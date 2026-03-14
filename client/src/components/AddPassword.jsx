@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import '../styles/components/AddPassword.less'; // импорт стилей для формы
-import {useCrypto} from '../context/CryptoContext'
+import { useCryptoStore } from '../utils/store'
 import {
     encryptData
 } from '../utils/crypto'
@@ -13,8 +13,8 @@ function AddPassword() {
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
     
-    // достаем публичный ключ из "облака", чтобы зашифровать данные
-    const {publicKey} = useCrypto();
+    // достаём публичный ключ из "хранилища", чтобы зашифровать данные
+    const publicKey = useCryptoStore((state) => state.publicKey)
 
     const handleSubmit = async (e) => {
         e.preventDefault(); // запрет перезагрузки, чтобы страница не моргала

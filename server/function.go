@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -67,4 +69,26 @@ func logAudit(c echo.Context, action ActionCode, manualUUID uuid.UUID) {
 			fmt.Printf("Ошибка асинхронного аудита: %v\n", err)
 		}
 	}(manualUUID, string(action), ip, ua)
+}
+
+func getJWTaccess(userID uuid.UUID) *jwt.Token {
+	// jwt токен для автоматического входа в систему. Токен действует 10 минут, хранит права, чтобы не обращаться к БД
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": userID,
+		// права. Пока что не реализованы
+		// "permissions": permissions,
+		"exp": time.Now().Add(time.Minute * 10).Unix(),
+	})
+
+	return accessToken
+}
+
+func getJWTrefresh(userID uuid.UUID) *jwt.Token {
+	// jwt токен для автоматического получения нового access токена. Действует 7 дней
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(),
+	})
+
+	return refreshToken
 }
