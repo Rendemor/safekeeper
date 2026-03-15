@@ -10,6 +10,16 @@ import (
 type User struct {
 	// id пользователя (используем UUID для защиты от перебора)
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+
+	// эта штука автоматически вместо id подтянет название роли, однако физически там лежит int, просто произойдёт автозапрос,
+	// который вытянет все названия в соответсвии с id
+	// важно, что это ВИРТУАЛЬНАЯ КОЛОНКА. В БД её не существует, постгресс о ней ничего не знает. Названия подтягиваются только если
+	// в запросе указать Preload("Role"). Если просто вытянуть юзера, то там будет только RoleID, а Role будет пустой
+	// внешний ключ
+	RoleID int `gorm:"not null"`
+	// связь: GORM поймет, что User принадлежит Role
+	Role Role `gorm:"constraint:OnDelete:RESTRICT"`
+
 	// почта
 	Email string `gorm:"unique;not null"`
 	// хеш мастер-пароля (bcrypt) исключительно для входа в систему
@@ -28,7 +38,7 @@ type User struct {
 	CreatedAt time.Time
 }
 
-// таблица зашифрованных паролей (сейф)
+// таблица зашифрованных паролей
 type Secret struct {
 	// id записи
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`

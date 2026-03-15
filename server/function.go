@@ -6,6 +6,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 
 	"fmt"
 )
@@ -71,13 +72,13 @@ func logAudit(c echo.Context, action ActionCode, manualUUID uuid.UUID) {
 	}(manualUUID, string(action), ip, ua)
 }
 
-func getJWTaccess(userID uuid.UUID) *jwt.Token {
+func getJWTaccess(userID uuid.UUID, permissions []string) *jwt.Token {
 	// jwt токен для автоматического входа в систему. Токен действует 10 минут, хранит права, чтобы не обращаться к БД
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID,
-		// права. Пока что не реализованы
-		// "permissions": permissions,
-		"exp": time.Now().Add(time.Minute * 10).Unix(),
+		// права
+		"permissions": permissions,
+		"exp":         time.Now().Add(time.Minute * 10).Unix(),
 	})
 
 	return accessToken
@@ -93,23 +94,45 @@ func getJWTrefresh(userID uuid.UUID) *jwt.Token {
 	return refreshToken
 }
 
-
 func parseJWT(tokenString string, secret string) (*jwt.MapClaims, error) {
-    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-        // проверяем метод подписи
-        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-            return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-        }
-        return []byte(secret), nil
-    })
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// проверяем метод подписи
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
 
-    if err != nil {
-        return nil, err
-    }
+	if err != nil {
+		return nil, err
+	}
 
-    if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-        return &claims, nil
-    }
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return &claims, nil
+	}
 
-    return nil, fmt.Errorf("invalid token")
+	return nil, fmt.Errorf("invalid token")
 }
+
+func getUserPermissions(db *gorm.DB, roleID int) ([]string, error) {
+	// pluck вытянет колонку и превратит её в массив
+	var permissions []string
+
+	if err := db.Table("permissions p").
+		Select("p.code").
+		Joins("join role_permissions rp ON p.id = rp.permission_id").
+		Where("role_id = ?", roleID).
+		// Pluck лучше всего подходит, чтобы вытянуть одну колонку
+		Pluck("p.name", &permissions).
+		Error; err != nil {
+		return nil, err
+	}
+
+	// просмотр, для отладки
+	// for _, p := range permissions {
+	// 	fmt.Println(p)
+	// }
+
+	return permissions, nil
+}
+

@@ -42,7 +42,7 @@ func main() {
 	private.Use(echojwt.JWT(jwtSecret))
 
 	// маршрут для добавления пароля теперь внутри защищенной группы
-	private.POST("/add-pwd", AddPasswordHandler)
+	private.POST("/add-pwd", AddPasswordHandler, CheckPermissionMiddleware("secrets:create"))
 	private.GET("/get-user-pwd", GetPasswordHandler)
 
 	// получение URL для генерации QR кода для 2FA

@@ -92,12 +92,18 @@ func LoginHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, APIError{Error: "Пользователь не найден"})
 	}
 
+	// получаем права по id роли
+	permission, err := getUserPermissions(DB, user.RoleID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Права не найдены"})
+	}
+
 	// хэшируем полученный пароль при входе и сравниваем хеш с тем, который лежит в базе
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
 		return c.JSON(http.StatusBadRequest, APIError{Error: "неверный пароль"})
 	}
 
-	accessToken := getJWTaccess(user.ID)
+	accessToken := getJWTaccess(user.ID, permission)
 	refreshToken := getJWTrefresh(user.ID)
 
 	ta, err := accessToken.SignedString(jwtSecret)
@@ -790,7 +796,13 @@ func RefreshJWT(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, APIError{Error: "Пользователь не найден"})
 	}
 
-	accessToken := getJWTaccess(user.ID)
+	// получаем права по id роли
+	permission, err := getUserPermissions(DB, user.RoleID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Права не найдены"})
+	}
+
+	accessToken := getJWTaccess(user.ID, permission)
 	refreshToken := getJWTrefresh(user.ID)
 
 	ta, err := accessToken.SignedString(jwtSecret)
