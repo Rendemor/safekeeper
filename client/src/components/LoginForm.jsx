@@ -19,6 +19,7 @@ function LoginForm({setPage, setOTPEnable}) {
     const setPrivateKey = useCryptoStore((state) => state.setPrivateKey)
     const setPublicKey = useCryptoStore((state) => state.setPublicKey)
     const setIsAuthenticated = useCryptoStore((state) => state.setIsAuthenticated)  
+    const setPermissions = useCryptoStore((state) => state.setPermissions)
 
     const handleSubmit = async (e) => {
         e.preventDefault() // заперт перезагрузки, чтобы страница не моргала после отправки данных
@@ -51,6 +52,11 @@ function LoginForm({setPage, setOTPEnable}) {
             // зная kek, расшифровываем приватный ключ, который получили от сервера
             const privateKey = await decryptPrivateKey(encrypted_private_key, kek)
 
+            // получаем из полезной нагрузки jwt права
+            const payloadJWT = JSON.parse(atob(token.split('.')[1]));
+            const perms = payloadJWT.permissions
+            setPermissions(perms)
+            
             // сохраняем ключи в контексте (в памяти)
             setPrivateKey(privateKey)
             setPublicKey(public_key)

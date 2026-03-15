@@ -14,10 +14,12 @@ var userPermissions = []Permission{
 var secretPermissions = []Permission{
 	{Name: "Добавление паролей", Code: "secrets:create"},
 	{Name: "Удаление своих паролей", Code: "secrets_owner:delete"},
+	{Name: "Удаление расшаренных паролей", Code: "secrets_shared:delete"},
 	{Name: "Редактирование своих паролей", Code: "secrets_owner:update"},
 	{Name: "Просмотр паролей", Code: "secrets:view"},
 	{Name: "Запрос доступа к чужим паролям", Code: "secrets:request_access"},
 	{Name: "Предоставление доступа к своим паролям", Code: "secrets:grant_access"},
+	{Name: "Доступ к возможности самостоятельно делиться паролями", Code: "secrets:shared"},
 }
 
 func SeedPermissions(db *gorm.DB, permissions []Permission) {

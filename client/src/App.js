@@ -11,6 +11,7 @@ import Setup2FA from './components/Setup2FA'
 import Verificate2FA from './components/Verificate2FA'
 import EditPassword from './components/EditPassword'
 import { useCryptoStore } from './utils/store'
+import { HasPermission } from './components/HasPermission'
 
 function App() { 
   const [page, setPage] = useState('login') // переключение между формами
@@ -32,7 +33,7 @@ function App() {
   }
 
   const handleShareClick = (pwd) => {
-      // сохраняем данные пароля
+    // сохраняем данные пароля
     setSelectedPassword(pwd)
     // меняем компонент отрисовки
     setPage('pwd-share')         
@@ -89,26 +90,19 @@ function App() {
           }}
           onCancel={() => setPage('vault')}
         />
+        case 'register': return <RegisterForm setPage={setPage} />
         case 'vault':
         default: return <PasswordManager onEdit={handleEditClick} onShare={handleShareClick} />
       }
     }
-
+    
     // логика для тех, кто не вошел
     switch (page) {
-      case 'register':
-        return (
-          <>
-            <RegisterForm setPage={setPage} />
-            <p>Уже есть аккаунт? <button onClick={() => setPage('login')}>Войти</button></p>
-          </>
-        )
       case 'login':
       default:
         return (
           <> 
             <LoginForm setPage={setPage} setOTPEnable={setOTPEnable} />
-            <p>Нет аккаунта? <button onClick={() => setPage('register')}>Зарегистрироваться</button></p>
           </>
         )
     }
@@ -122,10 +116,19 @@ function App() {
             {OTPEnable && is2FAVerified && (
               <ul>
                 <li><button onClick={() => setPage('vault')}>Менеджер</button></li>
-                <li><button onClick={() => setPage('add')}>Добавить</button></li>
-                <li><button onClick={() => setPage('pwd-share')}>Поделиться</button></li>
-                <li><button onClick={() => setPage('pwd-req')}>Запросить</button></li>
-                <li><button onClick={() => setPage('pwd-acs-req')}>Входящие</button></li>
+                <HasPermission permission="secrets:create">
+                  <li><button onClick={() => setPage('add')}>Добавить пароль</button></li>
+                </HasPermission>
+                <HasPermission permission="secrets:request_access">
+                  <li><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></li>
+                </HasPermission>
+                <HasPermission permission="secrets:grant_access">
+                  <li><button onClick={() => setPage('pwd-acs-req')}>Запросы</button></li>
+                </HasPermission>
+                {/* проверяем право создания пользователей */}
+                <HasPermission permission="users:create">
+                  <li><button onClick={() => setPage('register')}>Регистрация нового пользователя</button></li>
+                </HasPermission>
               </ul>
             )}
             <button className="logout" onClick={handleLogout}>Выйти</button>

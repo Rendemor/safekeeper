@@ -735,6 +735,7 @@ func PwdDelOwner(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusNotFound, "Пароль не найден")
 		}
 
+		// удаляемый пароль не совпадает с тем, который хотим удалить
 		if secret.ID != req.ID {
 			return c.JSON(http.StatusBadRequest, APIError{Error: "Ошибка удаления"})
 		}

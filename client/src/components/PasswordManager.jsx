@@ -6,6 +6,7 @@ import { useModal } from '../context/ModalContext'
 import {useCryptoStore} from '../utils/store'
 import { privateAPI } from '../api/private'
 import { logAPI } from '../api/log'
+import { HasPermission } from '../components/HasPermission'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
 const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
@@ -141,20 +142,35 @@ const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
 
                 {!item.is_shared && (
                     <div>
-                        <button className="vault-copy-btn" onClick={() => onShare(item)}>
-                            Поделиться
-                        </button>
+                        <HasPermission permission={"secrets:shared"}>
+                            <button className="vault-copy-btn" onClick={() => onShare(item)}>
+                                Поделиться
+                            </button>
+                        </HasPermission>
 
-                        <button className="vault-copy-btn" onClick={handleEdit}>
-                            Изменить
-                        </button>
+                        <HasPermission  permission={"secrets_owner:update"}>
+                            <button className="vault-copy-btn" onClick={handleEdit}>
+                                Изменить
+                            </button>
+                        </HasPermission>
                     </div>
                 )}
 
-                <button className="vault-del-btn" onClick={() => handleDel(item)}>
-                    Удалить
-                </button>
-
+                {item.is_shared ? (
+                    /* логика для расшаренного пароля */
+                    <HasPermission permission="secrets_shared:delete">
+                        <button className="vault-del-btn shared" onClick={() => handleDel(item)}>
+                            Удалить доступ
+                        </button>
+                    </HasPermission>
+                ) : (
+                    /* логика для собственного пароля */
+                    <HasPermission permission="secrets_owner:delete">
+                        <button className="vault-del-btn owner" onClick={() => handleDel(item)}>
+                            Удалить навсегда
+                        </button>
+                    </HasPermission>
+                )}
             </td>
         </tr>
     )

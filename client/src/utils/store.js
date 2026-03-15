@@ -6,11 +6,13 @@ export const useCryptoStore = create((set) => ({
     privateKey: null,
     publicKey: null,
     isAuthenticated: false,
+    permissions: [],
 
     // действия. Аналогия с useState
     setPrivateKey: (key) => set({ privateKey: key }),
     setPublicKey: (key) => set({ publicKey: key }),
     setIsAuthenticated: (value) => set({ isAuthenticated: value }),
+    setPermissions: (array) => set({ permissions: array }),
 
     // выход из аккаунта. Чистим и RAM, и localStorage
     logout: () => {
@@ -18,7 +20,9 @@ export const useCryptoStore = create((set) => ({
         set({ 
             privateKey: null, 
             publicKey: null, 
-            isAuthenticated: false 
-        }); 
+            isAuthenticated: false,
+            permissions: []
+        })
+        window.location.href = '/login'
     },
-}));
+}))

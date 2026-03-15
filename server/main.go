@@ -26,7 +26,7 @@ func main() {
 	auth := e.Group("api/auth")
 	// настройка маршрута к созданию пользователя. Сначала указываем маршрут. Если на него приходит POST запрос, то запускается
 	// функция RegisterHandler
-	auth.POST("/register", RegisterHandler)
+	auth.POST("/register", RegisterHandler, CheckPermissionMiddleware("users:create"))
 	// маршрут для входа
 	auth.POST("/login", LoginHandler)
 	// маршрут для получения соли
@@ -51,13 +51,13 @@ func main() {
 	private.POST("/ver-2FA-code", Verificate2FACode)
 
 	// получение списка запросов на получение пароля
-	private.GET("/pwd-acs-req", GetPasswordAccessRequest)
+	private.GET("/pwd-acs-req", GetPasswordAccessRequest, CheckPermissionMiddleware("secrets:request_access"))
 	// добавление запроса на получение пароля
-	private.POST("/pwd-req", AddPasswordRequest)
+	private.POST("/pwd-req", AddPasswordRequest, CheckPermissionMiddleware("secrets:create"))
 	// указываем в запросе title. В body запихнуть нельзя, у GET запроса не может быть body
-	private.GET("/get-dek", GetDEK)
+	private.GET("/get-dek", GetDEK) // добавить middleware, коды в тетради. Перед этим немного переписать его
 	// маршрут для обodрения пароля. Будет выдан пароль другому пользователю
-	private.POST("/pwd-acs-appr", PasswordAccessApprove)
+	private.POST("/pwd-acs-appr", PasswordAccessApprove, CheckPermissionMiddleware("secrets:grant_access"))
 	// отклонение запроса на получение пароля
 	private.POST("/pwd-acs-rej", PasswordAccessReject)
 	// получение публичного ключа по почте
@@ -67,14 +67,14 @@ func main() {
 	// та же соль, что и раньше, но по jwt токену
 	private.GET("/get-salt", GetSaltByJWT)
 	// меняем пароль
-	private.PUT("/pwd-edit", EditPassword)
+	private.PUT("/pwd-edit", EditPassword, CheckPermissionMiddleware("secrets:edit"))
 	// получение всех публичных ключей пользователей, которые имеют тот или иной расшаренный пароль
 	private.POST("/get-rec-keys", GetRecipientKeys)
 
 	// удаление оригинального пароля
-	private.POST("/del-owner-pwd", PwdDelOwner)
+	private.POST("/del-owner-pwd", PwdDelOwner, CheckPermissionMiddleware("secrets_owner:delete"))
 	// удаление расшаренного пароля
-	private.POST("/del-shared-pwd", PwdDelShare)
+	private.POST("/del-shared-pwd", PwdDelShare, CheckPermissionMiddleware("secrets_shared:delete"))
 
 	log := e.Group("api/log")
 	log.Use(echojwt.JWT(jwtSecret))
