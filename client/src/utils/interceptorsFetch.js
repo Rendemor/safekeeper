@@ -7,7 +7,7 @@ export const interceptorsFetch = async (url, options = {}, retryCount = 0) => {
     // пробуем обновить токен только один раз
     if (response.status === 401 && retryCount < 1) { 
         // creditials означает подключить куки к запросу, чтобы сервер смог найти refresh токен
-        const refreshRes = await fetch('http://localhost:8080/api/private/refresh-jwt', { method: 'GET', credentials: 'include' })
+        const refreshRes = await fetch('http://localhost:8080/api/auth/refresh-jwt', { method: 'GET', credentials: 'include' })
 
         if (refreshRes.ok) {
             const data = await refreshRes.json()

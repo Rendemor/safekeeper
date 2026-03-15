@@ -16,9 +16,10 @@ func main() {
 
 	// разрешаем запросы с любых адресов
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:3000"},                    // тут запущен клиент
-		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE}, // указываю методы, которые разрешены
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowOrigins:     []string{"http://localhost:3000"},                    // тут запущен клиент
+		AllowMethods:     []string{echo.GET, echo.POST, echo.PUT, echo.DELETE}, // указываю методы, которые разрешены
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "credentials"},
+		AllowCredentials: true,
 	}))
 
 	// объединил маршруты в группу по смыслу
@@ -30,6 +31,8 @@ func main() {
 	auth.POST("/login", LoginHandler)
 	// маршрут для получения соли
 	auth.GET("/get-salt", GetSaltHandler)
+	// маршрут для обновления JWT токена
+	auth.GET("/refresh-jwt", RefreshJWT)
 
 	// защищённые маршруты. Без jwt токена к ним доступа нет
 	// создаем группу маршрутов, которые требуют JWT токен
@@ -38,14 +41,9 @@ func main() {
 	// если токена нет или он с ошибкой, то к функциям ниже доступа просто нет
 	private.Use(echojwt.JWT(jwtSecret))
 
-	private.GET("/refresh-jwt", RefreshJWT)
-
 	// маршрут для добавления пароля теперь внутри защищенной группы
-	private.POST("/add-pass", AddPasswordHandler)
-	private.GET("/get-pass", GetPasswordHandler)
-
-	private.POST("/pwd-show", ShowPasswordHandler)
-	private.POST("/pwd-copy", CopyPasswordHandler)
+	private.POST("/add-pwd", AddPasswordHandler)
+	private.GET("/get-user-pwd", GetPasswordHandler)
 
 	// получение URL для генерации QR кода для 2FA
 	private.GET("/get-QR-2FA", GetQRFor2FA)
@@ -57,7 +55,7 @@ func main() {
 	// добавление запроса на получение пароля
 	private.POST("/pwd-req", AddPasswordRequest)
 	// указываем в запросе title. В body запихнуть нельзя, у GET запроса не может быть body
-	private.GET("/get-one-dek", GetOneDEK)
+	private.GET("/get-dek", GetDEK)
 	// маршрут для обodрения пароля. Будет выдан пароль другому пользователю
 	private.POST("/pwd-acs-appr", PasswordAccessApprove)
 	// отклонение запроса на получение пароля
@@ -65,18 +63,23 @@ func main() {
 	// получение публичного ключа по почте
 	private.GET("/get-public-key", GetPublicKey)
 	// проверка пользователя на то, что именно владелец перед экраном
-	private.GET("/verify-owner", VerifyOwner)
+	private.GET("/verify-pwd", VerifyOwner)
 	// та же соль, что и раньше, но по jwt токену
-	private.GET("/get-salt-jwt", GetSaltByJWT)
+	private.GET("/get-salt", GetSaltByJWT)
 	// меняем пароль
 	private.PUT("/pwd-edit", EditPassword)
 	// получение всех публичных ключей пользователей, которые имеют тот или иной расшаренный пароль
 	private.POST("/get-rec-keys", GetRecipientKeys)
 
 	// удаление оригинального пароля
-	private.POST("/pwd-del-owner", PwdDelOwner)
+	private.POST("/del-owner-pwd", PwdDelOwner)
 	// удаление расшаренного пароля
-	private.POST("/pwd-del-share", PwdDelShare)
+	private.POST("/del-shared-pwd", PwdDelShare)
+
+	log := e.Group("api/log")
+	log.Use(echojwt.JWT(jwtSecret))
+	log.POST("/pwd-show", ShowPasswordHandler)
+	log.POST("/pwd-copy", CopyPasswordHandler)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

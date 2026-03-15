@@ -4,6 +4,7 @@ import {
     shareKey
 } from '../utils/crypto'
 import {useCryptoStore} from '../utils/store'
+import { privateAPI } from '../api/private'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
 const ReqRow = ({ item, onUpdate }) => {
@@ -13,34 +14,23 @@ const ReqRow = ({ item, onUpdate }) => {
     // даём доступ
     const handleGrantAccess = async (e) => {
 
-        // запрашиваем конкретный пароль, чтобы зашифровать его и отправить другому пользователю
-        const pwd = await fetch(
-            `http://localhost:8080/get-one-dek?title=${encodeURIComponent(item.Title)}&login=${encodeURIComponent(item.Login)}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-        })
+        try {
+            // запрашиваем конкретный пароль, чтобы зашифровать его и отправить другому пользователю
+            const pwd = await privateAPI.GetDEK(item.Title, item.Login)
 
-        const {
-            enc_dek: encDEK,
-            id: ID
-        } = await pwd.json()
+            const {
+                enc_dek: encDEK,
+                id: ID
+            } = pwd
 
-        const alianEncDEK = await shareKey(encDEK, privateKey, item.PublicKey)
+            const alianEncDEK = await shareKey(encDEK, privateKey, item.PublicKey)
 
-        // превращаем время в объект "Дата"
-        const dateObject = new Date(time)
-        // превращаем в формат "2026-03-08T13:30:00.000Z"
-        const formattedTime = dateObject.toISOString()
+            // превращаем время в объект "Дата"
+            const dateObject = new Date(time)
+            // превращаем в формат "2026-03-08T13:30:00.000Z"
+            const formattedTime = dateObject.toISOString()
 
-        const response = await fetch("http://localhost:8080/pwd-acs-appr", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-            body: JSON.stringify({
+            await privateAPI.PwdAcsApp({
                 Title: item.Title,
                 // ID пароля из таблицы паролей
                 SecretID: ID,
@@ -52,30 +42,22 @@ const ReqRow = ({ item, onUpdate }) => {
                 SharedEncryptedDEK: alianEncDEK,
                 ExpiresAt: formattedTime,
             })
-        })
 
-        if(response.ok) {
             onUpdate()
-        }   
+        } catch (err) {
+
+        }
     }
 
     // отклоняем
     const handleRejectAccess = async (e) => {
-        const response = await fetch("http://localhost:8080/pwd-acs-rej", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-            body: JSON.stringify({
-                ID: item.UserIDFrom, // ID пользователя, который запросил пароль
+        try{
+            await privateAPI.PwdAcsRej({
                 Title: item.Title,
+                RecipientID: item.UserIDFrom,
             })
-        })
-
-        if(response.ok) {
             onUpdate()
-        } else {
+        } catch (err) {
             alert("Ошибка отклонения доступа")
         }
     }
@@ -102,33 +84,25 @@ const ReqRow = ({ item, onUpdate }) => {
                 />
             </td>
         </tr>
-    );
-};
+    )
+}
 
 function ReqPwdForm() {
-    const [req, setReq] = useState([]);
+    const [req, setReq] = useState([])
 
     const fetchReq = async () => {
-        // передаю jwt токен для определения пользователя
-        const response = await fetch('http://localhost:8080/pwd-acs-req', {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        const data = await response.json();
-        
-        // проверяем, что пришёл именно массив
-        if (Array.isArray(data)) {
-            setReq(data);
-        } else {
-            console.error("Сервер прислал не массив:", data);
-            setReq([]);
+        try {
+            const data = await privateAPI.PwdAcsReq()
+            setReq(data)
+        } catch (err) {
+            setReq([])
         }
-    };
+    }
 
     // при отрисовке вызывается автоматически
     useEffect(() => {
-        fetchReq();
-    }, []);
+        fetchReq()
+    }, [])
 
     return (
         <div className="vault">
@@ -157,7 +131,7 @@ function ReqPwdForm() {
                 </tbody>
             </table>
         </div>
-    );
+    )
 }
 
-export default ReqPwdForm;
+export default ReqPwdForm

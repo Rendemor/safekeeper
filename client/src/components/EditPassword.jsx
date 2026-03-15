@@ -5,6 +5,7 @@ import {
     encryptData,
     shareKey
 } from '../utils/crypto'
+import { privateAPI } from '../api/private'
 
 function EditPassword({existingData, onSave, onCancel}) {
     // объявление переменных состояния
@@ -25,43 +26,6 @@ function EditPassword({existingData, onSave, onCancel}) {
     const publicKey = useCryptoStore((state) => state.publicKey)
     const privateKey = useCryptoStore((state) => state.privateKey)
 
-    // запрашиваем все публичные ключи людей, у который есть доступ к моему паролю
-    const reqPublicKeys = async (e) => {
-        // указываем куда отправить данные
-        const res = await fetch('http://localhost:8080/get-rec-keys', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // отправляем токен, чтобы сервер знал email того, кто отправляет пароль 
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({ 
-                title: oldTitle, // название сайта
-                login: oldLogin, // логин от сайта 
-            }),
-        })
-        const data = await res.json()
-
-        if(res.ok) {
-            return data
-        } else {
-            setIsError(true)
-            setMessage('Ошибка получения ключей')
-        }
-    }
-
-    const getOneDEK = async (e) => {
-        const pwd = await fetch(
-            `http://localhost:8080/get-one-dek?title=${encodeURIComponent(oldTitle)}&login=${encodeURIComponent(oldLogin)}`, {
-                method:'GET',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                }
-            }                
-        )
-        return await pwd.json()
-    }
-
     const handleSubmit = async (e) => {
         e.preventDefault() // запрет перезагрузки, чтобы страница не моргала
         setIsError(false)
@@ -73,8 +37,8 @@ function EditPassword({existingData, onSave, onCancel}) {
                 enc_dek: enc_dek,
                 id: ID,
                 owner_id: ownerID
-            } = await getOneDEK()
-            const keys = await reqPublicKeys()
+            } = await privateAPI.GetDEK(oldTitle, oldLogin)
+            const keys = await privateAPI.RecPublicKeys({ title: oldTitle, login: oldLogin })
             
             const alianEncDEK = await Promise.all(
                 keys.map(async (userKey) => {
@@ -100,27 +64,13 @@ function EditPassword({existingData, onSave, onCancel}) {
                 shared_dek: alianEncDEK
             }
 
-            // указываем куда отправить данные
-            const res = await fetch('http://localhost:8080/pwd-edit', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // отправляем токен, чтобы сервер знал email того, кто отправляет пароль 
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify(payload),
-            })
-            
-            if(res.ok) {
-                setIsError(false)
-                onSave()
-            } else {
-                setMessage('Ошибка изменения пароля')
-                setIsError(true)
-            }
+            await privateAPI.EditPwd(payload)
+
+            setIsError(false)
+            setMessage('Пароль успешно изменён')
+            onSave()
         } catch (error) {
-            console.error('Ошибка сети или сервера:', error)
-            setMessage('Не удалось подключиться к серверу.')
+            setMessage('Ошибка изменения пароля')
             setIsError(true)
         }
     }

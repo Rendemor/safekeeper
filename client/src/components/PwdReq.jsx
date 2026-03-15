@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import '../styles/components/PwdReq.less' // импорт стилей для формы
+import { privateAPI } from '../api/private'
 
 function ReqPwd() {
     // объявление переменных состояния
@@ -13,34 +14,19 @@ function ReqPwd() {
         e.preventDefault() // запрет перезагрузки, чтобы страница не моргала
 
         try {
-            // указываем куда отправить данные
-            const response = await fetch('http://localhost:8080/pwd-req', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // отправляем токен, чтобы сервер знал email того, кто отправляет пароль 
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ 
-                    title: site, // название сайта
-                    login: login,
-                    email: email, // логин от сайта 
-                 }),
-            })
+            await privateAPI.PwdReq({ 
+                title: site, // название сайта
+                login: login,
+                email: email, // логин от сайта 
+             })
 
-            // проверка какой ответ пришёл от сервера
-            if(response.ok) {
-                setMessage('Запрос на получение пароля успешно отправлен')
-                setIsError(false)
-                setSite('')
-                setEmail('')
-            } else {
-                setMessage('Неверные данные')
-                setIsError(true)
-            }
+            setMessage('Запрос на получение пароля успешно отправлен')
+            setIsError(false)
+            setSite('')
+            setEmail('')
         } catch (error) {
-            console.error('Ошибка сети или сервера:', error)
-            setMessage('Не удалось подключиться к серверу.')
+            console.log("Error submitting password request:", error)
+            setMessage('Неверные данные')
             setIsError(true)
         }
     }

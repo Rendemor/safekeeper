@@ -115,12 +115,17 @@ func LoginHandler(c echo.Context) error {
 	cookie := new(http.Cookie)
 	cookie.Name = "refresh_token"
 	cookie.Value = tf
-	cookie.Expires = time.Now().Add(time.Hour * 24 * 7)
+	cookie.Expires = time.Now().Add(24 * 7 * time.Hour)
+	cookie.MaxAge = 60 * 60 * 24 * 7
 	cookie.HttpOnly = true
-	cookie.Secure = true
-	// указываю куда эта кука будет отправляться. То есть она прикрепляется только к запросу на указанный маршрут
-	cookie.Path = "api/private/refresh-jwt"
-	cookie.SameSite = http.SameSiteStrictMode
+	// надо будет поменять на true, когда будет HTTPS. Это значит, что кука будет передаваться только по защищённому протоколу
+	cookie.Secure = false
+
+	// самый мягкий режим
+	cookie.SameSite = http.SameSiteLaxMode
+
+	// видно всем
+	cookie.Path = "/"
 
 	c.SetCookie(cookie)
 
@@ -206,6 +211,7 @@ func Verificate2FACode(c echo.Context) error {
 }
 
 func AddPasswordHandler(c echo.Context) error {
+	userIDuuid, _ := getUserIDuuid(c)
 	// структура для пароля
 	type PasswordInput struct {
 		Title           string `json:"title"`
@@ -220,9 +226,8 @@ func AddPasswordHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
 	}
 
-	userIDuuid, err := getUserIDuuid(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат ID"})
+	if err := DB.Select("id").First(&User{}, userIDuuid).Error; err != nil {
+		return c.JSON(http.StatusNotFound, APIError{Error: "Пользователь не найден"})
 	}
 
 	// сохраняем данные в структуру как в БД
@@ -400,7 +405,7 @@ func AddPasswordRequest(c echo.Context) error {
 	}
 
 	if exists {
-		return c.JSON(http.StatusBadRequest, APIError{Error: "Пароль уже предоставлен"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Запрос уже отправлен или пароль уже предоставлен"})
 	}
 
 	pwdReq := PasswordAccessRequest{
@@ -496,7 +501,7 @@ func PasswordAccessApprove(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func GetOneDEK(c echo.Context) error {
+func GetDEK(c echo.Context) error {
 	userIDuuid, _ := getUserIDuuid(c)
 
 	// вытаскиваем параметр title из URL
@@ -675,6 +680,11 @@ func GetRecipientKeys(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, APIError{Error: "Пароль не найден"})
 	}
 
+	// надо обзательно вернуть хотя бы пустой массив, иначе map просто ломается на фронте
+	if len(keys) == 0 {
+		return c.JSON(http.StatusOK, []RecipientKey{})
+	}
+
 	return c.JSON(http.StatusOK, keys)
 }
 
@@ -745,22 +755,22 @@ func PwdDelShare(c echo.Context) error {
 func RefreshJWT(c echo.Context) error {
 	cookie, err := c.Cookie("refresh_token")
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, APIError{Error: "Refresh token not found"})
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Refresh токен не найден"})
 	}
 
 	claims, err := parseJWT(cookie.Value, string(jwtSecret))
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, APIError{Error: "Invalid refresh token"})
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Некорректный refresh токен"})
 	}
 
 	userID, ok := (*claims)["user_id"].(string)
 	if !ok {
-		return c.JSON(http.StatusUnauthorized, APIError{Error: "invalid token claims"})
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Некорректные данные токена"})
 	}
 
 	var user User
-	if err := DB.First(&user, userID).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, APIError{Error: "Пользователь удален"})
+	if err := DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Пользователь не найден"})
 	}
 
 	accessToken := getJWTaccess(user.ID)
@@ -783,10 +793,11 @@ func RefreshJWT(c echo.Context) error {
 	newCookie.Value = tf
 	newCookie.Expires = time.Now().Add(time.Hour * 24 * 7)
 	newCookie.HttpOnly = true
-	newCookie.Secure = true
+	// потом поменять на true, когда будет HTTPS. Это значит, что кука будет передаваться только по защищённому протоколу
+	newCookie.Secure = false
 	// указываю куда эта кука будет отправляться. То есть она прикрепляется только к запросу на указанный маршрут
-	newCookie.Path = "api/private/refresh-jwt"
-	newCookie.SameSite = http.SameSiteStrictMode
+	newCookie.Path = "/"
+	newCookie.SameSite = http.SameSiteLaxMode
 
 	c.SetCookie(newCookie)
 

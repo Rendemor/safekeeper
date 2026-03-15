@@ -4,23 +4,28 @@ import { decryptData } from '../utils/crypto'
 import ConfirmModal from '../components/ConfirmModal'
 import { useModal } from '../context/ModalContext'
 import {useCryptoStore} from '../utils/store'
+import { privateAPI } from '../api/private'
+import { logAPI } from '../api/log'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
 const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
     const [decryptedPassword, setDecryptedPassword] = useState('********')
     const [isShown, setIsShown] = useState(false)
-    const { openModal, closeModal } = useModal()
+    const { openModal } = useModal()
 
     // получение пароля из строки
     const getPlainPassword = async () => {
-
-        // дефивруем пароль и возвращаем его
-        return await decryptData(
-            item.encrypted_data, 
-            item.encrypted_dek, 
-            item.encryption_nonce, 
-            privateKey
-        )
+        try {
+            const pwd = await decryptData(
+                item.encrypted_data, 
+                item.encrypted_dek, 
+                item.encryption_nonce, 
+                privateKey
+            )
+            return pwd
+        } catch (err) {
+            console.error("Ошибка расшифровки:", err)
+        }
     }
 
     const handleEdit = async () => {
@@ -51,16 +56,8 @@ const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
                 const pass = await getPlainPassword()
                 setDecryptedPassword(pass)
 
-                await fetch('http://localhost:8080/pwd-show', {
-                    method: 'POST',
-                    headers: { 
-                        // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
-                    }
-                })
+                await logAPI.PwdShow()
             } catch (err) {
-                console.error("Ошибка расшифровки:", err)
                 setDecryptedPassword("Ошибка!")
             }
         } else {
@@ -76,15 +73,7 @@ const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
             const pass = await getPlainPassword()
             // встроенная функция, чтобы скопировать в буффер обмена любой текст
             await navigator.clipboard.writeText(pass)
-
-            await fetch('http://localhost:8080/pwd-copy', {
-                method: 'POST',
-                headers: { 
-                    // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
-                }
-            })
+            await logAPI.PwdCopy()
 
             alert("Пароль скопирован в буфер обмена!")
         } catch (err) {
@@ -106,46 +95,26 @@ const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
         
         try {
             if(item.is_shared) {
-                const req = await fetch('http://localhost:8080/pwd-del-share', {
-                    method: 'POST',
-                    headers: { 
-                        // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
-                    },
-                    body: JSON.stringify({
-                        id: item.id,
-                        title: item.title,
-                        login: item.login
-                    })
-                })
 
-                if(req.ok) {
-                   alert('Пароль удалён') 
-                }
+                await privateAPI.DelSharedPwd({
+                    id: item.id,
+                    title: item.title,
+                    login: item.login
+                })
+                alert('Пароль удалён') 
+
             } else {
-                const req = await fetch('http://localhost:8080/pwd-del-owner', {
-                    method: 'POST',
-                    headers: { 
-                        // обязательно добавляем токен, иначе сервер не поймёт кто отправил запрос
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json' // Хорошим тоном считается указывать тип контента
-                    },
-                    body: JSON.stringify({
-                        id: item.id,
-                        title: item.title,
-                        login: item.login
-                    })
+
+                await privateAPI.DelOwnerPwd({
+                    id: item.id,
+                    title: item.title,
+                    login: item.login
                 })
-
-                if(req.ok) {
-                   alert('Пароль удалён') 
-                }
+                alert('Пароль удалён') 
+                
             }
-            
-
         } catch (err) {
-            console.error("Ошибка удаления:", err)
+            alert('Ошибка удаления пароля')
         }
     }
 
@@ -193,33 +162,14 @@ const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
 
 function PasswordManager( {onEdit, onShare} ) {
     const [passwords, setPasswords] = useState([])
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const [pendingItem, setPendingItem] = useState(null) // Тут лежит пароль, который ждет подтверждения
     // достаём приватный ключ для расшифровки полученных паролей
     const privateKey = useCryptoStore((state) => state.privateKey)
-    const [verify, setVerify] = useState(false)
-    // отлавливаем состояние, когда удаляем пароль
-    const [pwdDel, setPwdDel] = useState(false)
-
-    // передаёт элемент в модалку
-    const handleStartEdit = (item) => {
-        setPendingItem(item)
-        setIsModalOpen(true)  
-    }
 
     const fetchPasswords = async () => {
-        // передаю jwt токен для определения пользователя
-        const response = await fetch('http://localhost:8080/get-pass', {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
-        const data = await response.json()
-        
-        // проверяем, что пришёл именно массив
-        if (Array.isArray(data)) {
+        try {
+            const data = await privateAPI.GetUserPwd()
             setPasswords(data)
-        } else {
-            console.error("Сервер прислал не массив:", data)
+        } catch {
             setPasswords([])
         }
     }

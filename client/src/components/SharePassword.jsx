@@ -6,6 +6,7 @@ import {
     decryptData,
     shareKey,
 } from '../utils/crypto'
+import { privateAPI } from '../api/private'
 
 function SharePassword({setPage, item}) {
     // объявление переменных состояния
@@ -23,77 +24,44 @@ function SharePassword({setPage, item}) {
         e.preventDefault()
 
         try {
-            const pwd = await fetch(
-                `http://localhost:8080/get-one-dek?title=${encodeURIComponent(site)}&login=${encodeURIComponent(login)}`, {
-                    method:'GET',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    }
-                }                
-            )
-
+            const pwd = await privateAPI.GetDEK(site, login)
             const {
-                enc_dek: encDEK,
                 id: ID,
-                owner_id: ownerID
-            } = await pwd.json()
+                owner_id: OwnerID,
+                enc_dek: encDEK
+            } = pwd
 
             // превращаем время в объект "Дата"
             const dateObject = new Date(time)
             // превращаем в формат "2026-03-08T13:30:00.000Z"
             const formattedTime = dateObject.toISOString()
 
-            // получаем публичный ключ пользователя, которому даём пароль
-            const res = await fetch(
-                `http://localhost:8080/get-public-key?email=${encodeURIComponent(email)}`, {
-                    method:'GET',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    }
-                }                
-            )
-            const otherUser = await res.json()
+            const otherUser = await privateAPI.GetPublicKey(email)
             const publicKeyOtherUser = otherUser.PublicKey
+
 
             // расшифровываем DEK и одновременно шифруем другим ключом 
             const alianEncDEK = await shareKey(encDEK, privateKey, publicKeyOtherUser)
 
             // передаём пароль другому пользователю
-            const response = await fetch("http://localhost:8080/pwd-acs-appr", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                },
-                body: JSON.stringify({
-                    Title: site,
-                    // ID пароля из таблицы паролей
-                    SecretID: ID,
-                    // ID владельца пароля
-                    OwnerID: ownerID,
-                    // ID пользователя, который имеет к нему доступ
-                    RecipientID: otherUser.ID,
-                    // DEK, зашифрованный публичным ключом нового владельца
-                    SharedEncryptedDEK: alianEncDEK,
-                    ExpiresAt: formattedTime,
-                })
+            await privateAPI.SharePassword({
+                Title: site,
+                SecretID: ID,
+                OwnerID: OwnerID,
+                RecipientID: otherUser.ID,
+                SharedEncryptedDEK: alianEncDEK,
+                ExpiresAt: formattedTime
             })
 
-            if(response.ok) {
-                setEmail('')
-                setLogin('')
-                setEmail('')
-                setMessage('Пароль отправлен')
-                setIsError(false)
-                setPage('vault')
-            } else {
-                setMessage('Ошибка выдачи проля')
-                setIsError(true)
-            }
-
+            setEmail('')
+            setLogin('')
+            setEmail('')
+            setMessage('Пароль отправлен')
+            setIsError(false)
+            setPage('vault')
         } catch (error) {
-            console.error('Ошибка сети или сервера:', error)
-            setMessage('Не удалось подключиться к серверу.')
+            console.error("Error sharing password:", error)
+            setMessage('Ошибка выдачи проля')
             setIsError(true)
         }
     }

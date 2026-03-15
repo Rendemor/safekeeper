@@ -3,61 +3,28 @@ import '../styles/components/ConfirmModal.less';
 import {
     deriveLoginHash,
 } from '../utils/crypto'
+import { privateAPI } from '../api/private'
 
 function ConfirmModal({ title, onConfirm, onCancel }) {
     
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
 
-    // соль через jwt
-    const getSalt = async (e) => {
-        try {
-            // получаем соль с сервера. Запрос идёт на get-salt. Дальше идёт ?, который означает "дальше идут дополнительные параметры"
-            // в качестве дополнительных параметров я указал почту, чтобы сервер смог найти пользователя в БД и отправить соль
-            const res = await fetch(`http://localhost:8080/get-salt-jwt`, {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            })
-            
-            // сначала парсим JSON, независимо от статуса
-            const data = await res.json()
-
-            if (!res.ok) {
-                // тут data будет содержать {"error": "Пользователь не найден"}
-                console.error("Сервер вернул ошибку:", data.error)
-                alert(data.error) 
-                return
-            }
-            return data
-        } catch (err) {
-            // сюда попадем, если сервер вообще недоступен или JSON сломан
-            console.error("Сетевая ошибка:", err)
-        }
-    }
-
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        const { salt: saltBase64 } = await getSalt()
+        e.preventDefault()
             
-        // перевод соли из base64 обратно в байты
-        const salt = new Uint8Array(atob(saltBase64).split("").map(c => c.charCodeAt(0)))
+        try {
+            const salt = await privateAPI.getSalt()
 
-        // на основе пароля генерируем LoginHash и KEK. Ну KEK не нужен, но просто для проверки можно посчитать и посмотреть 
-        // что получилось
-        const loginHash = await deriveLoginHash(password, salt)
-
-        // отправка loginHash на проверку
-        const loginRes = await fetch(`http://localhost:8080/verify-owner?hash=${encodeURIComponent(loginHash)}`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
-
-        if(loginRes.ok) {
+            // на основе пароля генерируем LoginHash и KEK. Ну KEK не нужен, но просто для проверки можно посчитать и посмотреть 
+            // что получилось
+            const loginHash = await deriveLoginHash(password, salt)
+            await privateAPI.VerifyPwd(loginHash)
             onConfirm(true)
-        } else {
+        } catch (err) {
             setError('Неверный мастер-пароль')
         }
+
     };
 
     return (

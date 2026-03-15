@@ -1,67 +1,52 @@
-import React, { useState } from 'react';
-import '../styles/components/AddPassword.less'; // импорт стилей для формы
+import React, { useState } from 'react'
+import '../styles/components/AddPassword.less' // импорт стилей для формы
 import { useCryptoStore } from '../utils/store'
 import {
     encryptData
 } from '../utils/crypto'
+import { privateAPI } from '../api/private'
 
 function AddPassword() {
     // объявление переменных состояния
-    const [email, setEmail] = useState(''); // логин от стороннего сайта 
-    const [password, setPassword] = useState(''); // пароль от стороннего сайта
-    const [site, setSite] = useState(''); // название сайта 
-    const [message, setMessage] = useState('');
-    const [isError, setIsError] = useState(false);
+    const [email, setEmail] = useState('') // логин от стороннего сайта 
+    const [password, setPassword] = useState('') // пароль от стороннего сайта
+    const [site, setSite] = useState('') // название сайта 
+    const [message, setMessage] = useState('')
+    const [isError, setIsError] = useState(false)
     
     // достаём публичный ключ из "хранилища", чтобы зашифровать данные
     const publicKey = useCryptoStore((state) => state.publicKey)
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); // запрет перезагрузки, чтобы страница не моргала
+        e.preventDefault() // запрет перезагрузки, чтобы страница не моргала
 
-        setMessage('Сохранение...');
-        setIsError(false);
+        setMessage('Сохранение...')
+        setIsError(false)
 
         try {
             // шифруем пароль. На выходе получаем объект с зашифрованным текстом, ключом DEK и IV (nonce)
-            const encryptedData = await encryptData(password, publicKey);
+            const encryptedData = await encryptData(password, publicKey)
 
-            // указываем куда отправить данные
-            const response = await fetch('http://localhost:8080/add-pass', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // отправляем токен, чтобы сервер знал email того, кто отправляет пароль 
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ 
-                    title: site, // название сайта
-                    login: email, // логин от сайта 
-                    encrypted_data: encryptedData.encrypted_content, // зашифрованный пароль
-                    encryption_nonce: encryptedData.iv, // IV выступает в роли случайного шума
-                    encrypted_dek: encryptedData.encrypted_dek // зашифрованный ключ для этого пароля
-                 }),
-            });
+
+            await privateAPI.AddPwd({
+                title: site, // название сайта
+                login: email, // логин от сайта 
+                encrypted_data: encryptedData.encrypted_content, // зашифрованный пароль
+                encryption_nonce: encryptedData.iv, // IV выступает в роли случайного шума
+                encrypted_dek: encryptedData.encrypted_dek // зашифрованный ключ для этого пароля
+            })
             
-            const data = await response.json();
-
-            if (response.ok) {
-                setMessage("Пароль добавлен успешно!");
-                setIsError(false);
-                // очищаем поля после успеха
-                setSite('');
-                setEmail('');
-                setPassword('');
-            } else { 
-                setMessage(data.error || 'Произошла ошибка при добавлении пароля.');
-                setIsError(true);
-            }
-        } catch (error) {
-            console.error('Ошибка сети или сервера:', error);
-            setMessage('Не удалось подключиться к серверу.');
-            setIsError(true);
+            setMessage("Пароль добавлен успешно!")
+            setIsError(false)
+            // очищаем поля после успеха
+            setSite('')
+            setEmail('')
+            setPassword('')
+        } catch (err) {
+            setMessage(err.message || 'Произошла ошибка')
+            setIsError(true)
         }
-    };
+    }
 
     return (
         <div className="add">
@@ -113,7 +98,7 @@ function AddPassword() {
                 </p>
             )}
         </div>
-    );
+    )
 }
 
-export default AddPassword;
+export default AddPassword

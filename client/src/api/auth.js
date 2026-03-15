@@ -35,7 +35,10 @@ export const authAPI = {
         try {
             const res = await interceptorsFetch('http://localhost:8080/api/auth/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
                 body: JSON.stringify(payload)
             })
 
@@ -44,7 +47,7 @@ export const authAPI = {
                 throw new Error(errorData.error || 'Ошибка сервера')
             }
 
-            return res.json()
+            return await res.json()
         } catch (err) {
             console.error("API Error [login]:", err)
             throw err
@@ -76,7 +79,7 @@ export const authAPI = {
 
     RefreshJWT: async () => {
         try {
-            const res = await interceptorsFetch('http://localhost:8080/api/private/refresh-jwt', {
+            const res = await interceptorsFetch('http://localhost:8080/api/auth/refresh-jwt', {
                 method: "GET",
                 // указываем, что хотим отправить куку
                 credentials: 'include'
@@ -91,7 +94,7 @@ export const authAPI = {
 
             localStorage.setItem('token', token)
         } catch (err) {
-            console.error("API Error [Ver2FA]:", err)
+            console.error("API Error [RefreshJWT]:", err)
             throw err
         }
     }

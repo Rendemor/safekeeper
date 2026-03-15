@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import '../styles/components/Verificate2FA.less'
-import { privateAPI } from '../api/private'
+import { authAPI } from '../api/auth'
 
 function Verificate2FA ( {setPage, setIs2FAVerified} ) {
     const [code, setCode] = useState('')
@@ -12,7 +12,7 @@ function Verificate2FA ( {setPage, setIs2FAVerified} ) {
         setIsError(false)
 
         try {
-            await privateAPI.Ver2FA({code})
+            await authAPI.Ver2FA({code})
             setMessage("Подключение 2FA прошло успешно")
             setIs2FAVerified(true)
             setPage('vault')}
@@ -20,7 +20,6 @@ function Verificate2FA ( {setPage, setIs2FAVerified} ) {
             setMessage(err.message || 'Произошла ошибка')
             setIsError(true)
         }
-
     }
 
     return (
