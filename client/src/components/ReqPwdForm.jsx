@@ -8,11 +8,28 @@ import { privateAPI } from '../api/private'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
 const ReqRow = ({ item, onUpdate }) => {
-    const [time, setTime] = useState('0')
+    // текущее время + 7 дней
+    const getInSevenDays = () => {
+        const now = new Date();
+        // добавляем 7 дней
+        now.setDate(now.getDate() + 7)
+        
+        // форматируем под datetime-local (YYYY-MM-DDTHH:mm)
+        // используем смещение часового пояса, чтобы дата осталась локальной
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        const hours = String(now.getHours()).padStart(2, '0')
+        const minutes = String(now.getMinutes()).padStart(2, '0')
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`
+    }
+
+    const [time, setTime] = useState(getInSevenDays())
     const privateKey = useCryptoStore((state) => state.privateKey)
 
     // даём доступ
-    const handleGrantAccess = async (e) => {
+    const handleGrantAccess = async () => {
 
         try {
             // запрашиваем конкретный пароль, чтобы зашифровать его и отправить другому пользователю
@@ -45,7 +62,7 @@ const ReqRow = ({ item, onUpdate }) => {
 
             onUpdate()
         } catch (err) {
-
+            alert("Ошибка предоставления доступа")
         }
     }
 
@@ -54,7 +71,7 @@ const ReqRow = ({ item, onUpdate }) => {
         try{
             await privateAPI.PwdAcsRej({
                 Title: item.Title,
-                RecipientID: item.UserIDFrom,
+                ID: item.UserIDFrom,
             })
             onUpdate()
         } catch (err) {

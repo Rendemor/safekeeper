@@ -345,6 +345,51 @@ export const privateAPI = {
             console.error("API Error [PwdAcsReq]:", err)
             throw err
         }
+    },
+
+    Setup2FA: async (payload = {}) => {
+        const token = localStorage.getItem('token')
+
+        try {
+            const res = await interceptorsFetch('http://localhost:8080/api/private/ver-2FA-code', {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify (payload)
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+        } catch (err) {
+            console.error("API Error [Ver2FA]:", err)
+            throw err
+        }
+    },
+
+    GetQR: async () => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/private/get-QR-2FA', {
+                method: "GET",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+
+            return await res.json()
+        } catch (err) {
+            console.error("API Error [GetQR]:", err)
+            throw err
+        }
     }
 }
 

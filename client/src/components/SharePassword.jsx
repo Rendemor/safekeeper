@@ -60,7 +60,6 @@ function SharePassword({setPage, item}) {
             setIsError(false)
             setPage('vault')
         } catch (error) {
-            console.error("Error sharing password:", error)
             setMessage('Ошибка выдачи проля')
             setIsError(true)
         }

@@ -8,6 +8,7 @@ import {
     encryptPrivateKey,
     deriveLoginHash
 } from '../utils/crypto' // импорт функций для шифрования паролей
+import { authAPI } from '../api/auth'
 
 function RegisterForm({setPage}) {
     // объявление переменных состояния
@@ -44,40 +45,22 @@ function RegisterForm({setPage}) {
             const saltString = btoa(String.fromCharCode(...salt))
 
             // указываем куда отправить данные, а также тип запрос, какие данные и само наполнение
-            const response = await fetch('http://localhost:8080/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    email: email, 
-                    password: loginHash, // пароль для bcrypt на сервере
-                    master_key_salt: saltString,
-                    public_key: exportedPubKey,
-                    encrypted_private_key: encryptedPrivKey
-                }),
+            await authAPI.Register({
+                email: email, 
+                password: loginHash, // пароль для bcrypt на сервере
+                master_key_salt: saltString,
+                public_key: exportedPubKey,
+                encrypted_private_key: encryptedPrivKey
             })
-            
-            // тут хранится ответ с сервера
-            const data = await response.json()
 
-            // если статут 2.., то это успех.
-            if (response.ok) {
-                setMessage(data.message)
-                setIsError(false)
-                // очистка полей
-                setEmail('') 
-                setPassword('')
-                setPage('login')
-            // если статус 4.., 5..
-            } else { 
-                // вывод ошибки
-                setMessage(data.error || 'Произошла ошибка при регистрации.')
-                setIsError(true)
-            }
-        } catch (error) {
-            console.error('Ошибка сети или сервера:', error)
-            setMessage('Не удалось подключиться к серверу. Проверьте соединение.')
+            setMessage('Регистрация прошла успешно!')
+            setIsError(false)
+            // очистка полей
+            setEmail('') 
+            setPassword('')
+            setPage('login')
+        } catch (err) {
+            setMessage(err?.message || 'Не удалось подключиться к серверу')
             setIsError(true)
         }
     }

@@ -34,13 +34,13 @@ func RegisterHandler(c echo.Context) error {
 	// не получается, то получаю ошибку
 	// map[string]string{"error": "Неверные данные"} создаёт структуру json файла для возврата.
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Неверные данные"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверные данные"})
 	}
 
 	// хэширование зашифрованного пароля
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка обработки пароля"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка обработки пароля"})
 	}
 
 	newUser := User{
@@ -56,10 +56,10 @@ func RegisterHandler(c echo.Context) error {
 
 		// Проверяем код ошибки PostgreSQL (23505 - уникальный ключ)
 		if strings.Contains(err.Error(), "23505") {
-			return c.JSON(http.StatusConflict, map[string]string{"error": "Пользователь с таким email уже зарегистрирован"})
+			return c.JSON(http.StatusConflict, APIError{Error: "Пользователь с таким email уже зарегистрирован"})
 		}
 
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Ошибка при создании аккаунта"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка при создании аккаунта"})
 	}
 
 	// функция лдя логирования. Обычно uuid достают из jwt токена, но во время регистрации пользователь ещё не имеет токена, поэтому
@@ -387,7 +387,7 @@ func AddPasswordRequest(c echo.Context) error {
 	if err := DB.Where(
 		"user_id = ? AND title = ? AND login = ?",
 		userTo.ID, input.Title, input.Login).First(&pwd).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, APIError{Error: "Пароля нет"})
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Такого пароля нет"})
 	}
 
 	var exists bool
@@ -405,7 +405,24 @@ func AddPasswordRequest(c echo.Context) error {
 	}
 
 	if exists {
-		return c.JSON(http.StatusBadRequest, APIError{Error: "Запрос уже отправлен или пароль уже предоставлен"})
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Запрос уже отправлен"})
+	}
+
+	err = DB.Model(&SharedSecret{}).
+		// делаем булевый запрос. Если записей больше 0, то вернёт 1, иначе 0
+		Select("count(*) > 0").
+		Where(
+			"secret_id = ? AND owner_id = ? AND recipient_id = ?",
+			pwd.ID, userTo.ID, userFrom.ID).
+		Find(&exists).
+		Error
+
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Ошибка поиска записи"})
+	}
+
+	if exists {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Пароль уже предоставлен"})
 	}
 
 	pwdReq := PasswordAccessRequest{

@@ -97,6 +97,27 @@ export const authAPI = {
             console.error("API Error [RefreshJWT]:", err)
             throw err
         }
+    },
+
+    Register: async (payload = {}) => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+        } catch (err) {
+            console.error("API Error [Register]:", err)
+            throw err
+        }
     }
 }
 

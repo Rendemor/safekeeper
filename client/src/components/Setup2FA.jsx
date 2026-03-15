@@ -1,56 +1,38 @@
 import React, { useState, useEffect } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
 import '../styles/components/Setup2FA.less'
+import { privateAPI } from '../api/private'
 
 function Setup2FA ( {setPage, setOTPEnable} ) {
     const [code, setCode] = useState('')
     const [otpUrl, setOtpUrl] = useState('')
     const [isError, setIsError] = useState(false)
-    const [onVerify, setOnVerify] = useState(false)
     const [message, setMessage] = useState('')
 
     const handleSubmit = async (e) => {
         e.preventDefault()
         setIsError(false)
 
-        const res = await fetch('http://localhost:8080/ver-2FA-code', {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-            body: JSON.stringify ({
-                code: code
-            })
-        })
-
-        if(res.ok) {
+        try {
+            await privateAPI.Setup2FA({code})
             setIsError(false)
             setMessage("Подключение 2FA прошло успешно")
             setOTPEnable(true)
             setPage('vault')
-        } else {
+        } catch (err) {
             setIsError(true)
-            setMessage("Ошибка подключения 2FA")
+            setMessage(err?.message || "Ошибка подключения 2FA")
         }
     }
 
     const GetQR = async () => {
         try {
-            const res = await fetch('http://localhost:8080/get-QR-2FA', {
-                method: "GET",
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            })
-            // получили URL, на основе которого генерируется QR
-            const data = await res.json()
-            
+            const data = await privateAPI.GetQR()
             setOtpUrl(data.qr_url)
         } catch (err) {
-            console.error("Не удалось получить QR код:", err)
+            setMessage(err?.message || "Не удалось получить QR код")
         }
-    };
+    }
 
     // при отрисовке вызывается автоматически
     useEffect(() => {

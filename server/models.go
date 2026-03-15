@@ -93,3 +93,30 @@ type SharedSecret struct {
 	ExpiresAt *time.Time
 	CreatedAt time.Time
 }
+
+// роли
+type Role struct {
+	ID   int    `gorm:"primaryKey"`
+	Name string `gorm:"size:50;not null;unique"`
+}
+
+// права
+type Permission struct {
+	ID int `gorm:"primaryKey"`
+	// ну типо полное название
+	Name string `gorm:"size:100;not null"`
+	// сокращённое название для удобства
+	Code string `gorm:"size:50;not null;uniqueIndex"`
+}
+
+// права роли
+type RolePermission struct {
+	// составной первичный ключ из ID роли и ID права. Это гарантирует, что одна роль не может иметь одно и то же право несколько раз
+	// Это работает лучше, чем UniqueIndex, потому что сама БД оптимизирует поиск по составному первичному ключу, а UniqueIndex
+	// только гарантирует уникальность, но не оптимизирует поиск
+	RoleID       int `gorm:"primaryKey"`
+	PermissionID int `gorm:"primaryKey"`
+	// Указываем связи для GORM
+	Role       Role       `gorm:"constraint:OnDelete:CASCADE;"`
+	Permission Permission `gorm:"constraint:OnDelete:CASCADE;"`
+}

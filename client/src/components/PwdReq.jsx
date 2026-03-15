@@ -25,8 +25,7 @@ function ReqPwd() {
             setSite('')
             setEmail('')
         } catch (error) {
-            console.log("Error submitting password request:", error)
-            setMessage('Неверные данные')
+            setMessage(error?.message || 'Неверные данные')
             setIsError(true)
         }
     }
