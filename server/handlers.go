@@ -16,10 +16,25 @@ import (
 // функция регистрации. В Go сначала пишем название переменной, потом тип данных. После функции пишем тип данных, который возвращаем
 func RegisterHandler(c echo.Context) error {
 
+	// 	// указываем куда отправить данные, а также тип запрос, какие данные и само наполнение
+	// await privateAPI.Register({
+	// 	lastName, firstName, patronymic,
+	// 	role: selectedRole,
+	// 	email: email,
+	// 	password: loginHash, // пароль для bcrypt на сервере
+	// 	master_key_salt: saltString,
+	// 	public_key: exportedPubKey,
+	// 	encrypted_private_key: encryptedPrivKey
+	// })
+
 	// локальная структура для принятия данных. `json:"email"` и `json:"password"` это теги, которые помогают программе понимать
 	// из каких полей класть информацию из файла в структуру. То есть в файле будет
 	// { "email": "test@example.com", "password": "my_password" } и всё корректно разложится
 	type RegisterRequest struct {
+		LastName            string `json:"lastName"`
+		FirstName           string `json:"firstName"`
+		Patronymic          string `json:"patronymic"`
+		Role                string `json:"role"`
 		Email               string `json:"email"`
 		Password            string `json:"password"`
 		MasterKeySalt       string `json:"master_key_salt"`
@@ -43,7 +58,16 @@ func RegisterHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка обработки пароля"})
 	}
 
+	var roleID int
+	if err := DB.Table("roles r").Select("r.id").Where("r.name = ?", req.Role).Scan(&roleID).Error; err != nil {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Такой роли не существует"})
+	}
+
 	newUser := User{
+		LastName:            req.LastName,
+		FirstName:           req.FirstName,
+		Patronymic:          req.Patronymic,
+		RoleID:              roleID,
 		Email:               req.Email,
 		PasswordHash:        string(hashedPassword),
 		MasterKeySalt:       req.MasterKeySalt,
@@ -836,4 +860,37 @@ func RefreshJWT(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, Res{Token: ta})
+}
+
+func GetAllRoles(c echo.Context) error {
+	var roles []string
+	if err := DB.Table("roles r").
+		Select("r.name").
+		// Pluck лучше всего подходит, чтобы вытянуть одну колонку
+		Pluck("r.name", &roles).
+		Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.JSON(http.StatusOK, roles)
+}
+
+func GetUsers(c echo.Context) error {
+	type Res struct {
+		RoleID     int       `json:"roleID"`
+		Role       Role      `json:"role"`
+		FirstName  string    `json:"firstName"`
+		LastName   string    `json:"lastName"`
+		Patronymic string    `json:"patronymic"`
+		Email      string    `json:"email"`
+		CreatedAt  time.Time `json:"createdAt"`
+	}
+
+	var users []Res
+	// Joins("Role") автоматически вытащил названия для Role, вместо ID
+	if err := DB.Model(&User{}).Joins("Role").Find(&users).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.JSON(http.StatusOK, users)
 }

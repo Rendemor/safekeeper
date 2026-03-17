@@ -120,57 +120,60 @@ const PasswordRow = ({ item, privateKey, onEdit, onShare }) => {
     }
 
     return (
-        <tr>
-            <td>{item.title}</td>
-            <td>{item.login}</td>
-            <td>
+        <tr className="VaultRow">
+            <td className="VaultRow__cell VaultRow__cell--title">{item.title}</td>
+            <td className="VaultRow__cell VaultRow__cell--login">{item.login}</td>
+            <td className="VaultRow__cell VaultRow__cell--password">
                 <input 
                     type={isShown ? "text" : "password"} 
                     value={decryptedPassword} 
                     readOnly 
-                    className="vault-input-readonly"
+                    className="VaultRow__input"
                 />
             </td>
-            <td>
-                <button className="vault-copy-btn" onClick={handleToggleShow}>
-                    {isShown ? "Скрыть" : "Показать"}
-                </button>
+            <td className="VaultRow__cell VaultRow__cell--actions">
+                {/* Группа 1: Просмотр и копирование */}
+                <div className="VaultRow__group">
+                    <button className="VaultRow__button VaultRow__button--secondary" onClick={handleToggleShow}>
+                        {isShown ? "Скрыть" : "Показать"}
+                    </button>
+                    <button className="VaultRow__button VaultRow__button--secondary" onClick={handleCopy}>
+                        Копировать
+                    </button>
+                </div>
 
-                <button className="vault-copy-btn" onClick={handleCopy}>
-                    Копировать
-                </button>
-
+                {/* Группа 2: Управление (если не shared) */}
                 {!item.is_shared && (
-                    <div>
+                    <div className="VaultRow__group">
                         <HasPermission permission={"secrets:shared"}>
-                            <button className="vault-copy-btn" onClick={() => onShare(item)}>
+                            <button className="VaultRow__button VaultRow__button--primary" onClick={() => onShare(item)}>
                                 Поделиться
                             </button>
                         </HasPermission>
-
-                        <HasPermission  permission={"secrets_owner:update"}>
-                            <button className="vault-copy-btn" onClick={handleEdit}>
+                        <HasPermission permission={"secrets_owner:update"}>
+                            <button className="VaultRow__button VaultRow__button--primary" onClick={handleEdit}>
                                 Изменить
                             </button>
                         </HasPermission>
                     </div>
                 )}
 
-                {item.is_shared ? (
-                    /* логика для расшаренного пароля */
-                    <HasPermission permission="secrets_shared:delete">
-                        <button className="vault-del-btn shared" onClick={() => handleDel(item)}>
-                            Удалить доступ
-                        </button>
-                    </HasPermission>
-                ) : (
-                    /* логика для собственного пароля */
-                    <HasPermission permission="secrets_owner:delete">
-                        <button className="vault-del-btn owner" onClick={() => handleDel(item)}>
-                            Удалить навсегда
-                        </button>
-                    </HasPermission>
-                )}
+                {/* Группа 3: Удаление */}
+                <div className="VaultRow__group">
+                    {item.is_shared ? (
+                        <HasPermission permission="secrets_shared:delete">
+                            <button className="VaultRow__button VaultRow__button--danger" onClick={() => handleDel(item)}>
+                                Удалить доступ
+                            </button>
+                        </HasPermission>
+                    ) : (
+                        <HasPermission permission="secrets_owner:delete">
+                            <button className="VaultRow__button VaultRow__button--danger" onClick={() => handleDel(item)}>
+                                Удалить навсегда
+                            </button>
+                        </HasPermission>
+                    )}
+                </div>
             </td>
         </tr>
     )
@@ -196,26 +199,24 @@ function PasswordManager( {onEdit, onShare} ) {
     }, [])
 
     return (
-        <div className="vault">
-            <h2 className="vault-title">Мои пароли</h2>
+        <div className="Vault">
+            <h2 className="Vault__title">Мои пароли</h2>
             
-            <table className="vault-table">
-                <thead>
+            <table className="Vault__table">
+                <thead className="Vault__head">
                     <tr>
-                        <th>Сайт</th>
-                        <th>Логин</th>
-                        <th>Пароль</th>
-                        <th>Действие</th>
+                        <th className="Vault__th">Сайт</th>
+                        <th className="Vault__th">Логин</th>
+                        <th className="Vault__th">Пароль</th>
+                        <th className="Vault__th">Действие</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {/* просто итератор. Вся отрисовка выше, тут только перебираем пароли */}
+                <tbody className="Vault__body">
                     {passwords.map((item) => (
                         <PasswordRow 
                             key={item.ID} 
                             item={item} 
                             privateKey={privateKey} 
-                            // передаём вызовы модалки в кажый item, чтобы к каждой кнопке привязать
                             onEdit={onEdit}
                             onShare={onShare}
                         />
@@ -223,9 +224,7 @@ function PasswordManager( {onEdit, onShare} ) {
                 </tbody>
             </table>
             
-            {/* надо потом добавить переход на форму */}
-            <button className="vault-add-btn">+ Добавить пароль</button>
-
+            <button className="Vault__addBtn">+ Добавить пароль</button>
         </div>
     )
 }

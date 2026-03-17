@@ -12,6 +12,7 @@ import Verificate2FA from './components/Verificate2FA'
 import EditPassword from './components/EditPassword'
 import { useCryptoStore } from './utils/store'
 import { HasPermission } from './components/HasPermission'
+import AdminPanel from './components/ViewUsers'
 
 function App() { 
   const [page, setPage] = useState('login') // переключение между формами
@@ -81,6 +82,7 @@ function App() {
         case 'pwd-acs-req': return <AcsReqPwdForm />
         case 'pwd-req': return <PwdReq />
         case 'pwd-share': return <SharePassword setPage={setPage} item={selectedPassword} /> 
+        case 'admin-panel': return <AdminPanel></AdminPanel>
         case 'pwd-edit': 
         return <EditPassword  
           existingData={selectedPassword} 
@@ -111,33 +113,77 @@ function App() {
   return (
     <div className="app">
       {isAuthenticated && (
-        <header>
-          <nav>
+        <header className="Header">
+          <nav className="Header__nav">
             {OTPEnable && is2FAVerified && (
-              <ul>
-                <li><button onClick={() => setPage('vault')}>Менеджер</button></li>
+              <ul className="Header__menu">
+                <li className="Header__item">
+                  <button 
+                    className={`Header__link ${page === 'vault' ? 'Header__link--active' : ''}`} 
+                    onClick={() => setPage('vault')}
+                  >
+                    Менеджер
+                  </button>
+                </li>
                 <HasPermission permission="secrets:create">
-                  <li><button onClick={() => setPage('add')}>Добавить пароль</button></li>
+                  <li className="Header__item">
+                    <button 
+                      className={`Header__link ${page === 'add' ? 'Header__link--active' : ''}`} 
+                      onClick={() => setPage('add')}
+                    >
+                      Добавить пароль
+                    </button>
+                  </li>
                 </HasPermission>
                 <HasPermission permission="secrets:request_access">
-                  <li><button onClick={() => setPage('pwd-req')}>Запросить пароль</button></li>
+                  <li className="Header__item">
+                    <button 
+                      className={`Header__link ${page === 'pwd-req' ? 'Header__link--active' : ''}`} 
+                      onClick={() => setPage('pwd-req')}
+                    >
+                      Запросить пароль
+                    </button>
+                  </li>
                 </HasPermission>
                 <HasPermission permission="secrets:grant_access">
-                  <li><button onClick={() => setPage('pwd-acs-req')}>Запросы</button></li>
+                  <li className="Header__item">
+                    <button 
+                      className={`Header__link ${page === 'pwd-acs-req' ? 'Header__link--active' : ''}`} 
+                      onClick={() => setPage('pwd-acs-req')}
+                    >
+                      Запросы
+                    </button>
+                  </li>
                 </HasPermission>
-                {/* проверяем право создания пользователей */}
                 <HasPermission permission="users:create">
-                  <li><button onClick={() => setPage('register')}>Регистрация нового пользователя</button></li>
+                  <li className="Header__item">
+                    <button 
+                      className={`Header__link ${page === 'register' ? 'Header__link--active' : ''}`} 
+                      onClick={() => setPage('register')}
+                    >
+                      Регистрация нового пользователя
+                    </button>
+                  </li>
+                </HasPermission>
+                <HasPermission permission="users:view">
+                  <li className="Header__item">
+                    <button 
+                      className={`Header__link ${page === 'admin-panel' ? 'Header__link--active' : ''}`} 
+                      onClick={() => setPage('admin-panel')}
+                    >
+                      Пользователи
+                    </button>
+                  </li>
                 </HasPermission>
               </ul>
             )}
-            <button className="logout" onClick={handleLogout}>Выйти</button>
+            <button className="Header__logout" onClick={handleLogout}>Выйти</button>
           </nav>
         </header>
       )}
       
-      <main>
-        <section>
+      <main className="Main">
+        <section className="Main__section">
           {renderContent()}
         </section>
       </main>

@@ -25,8 +25,6 @@ func main() {
 	// объединил маршруты в группу по смыслу
 	auth := e.Group("api/auth")
 	// настройка маршрута к созданию пользователя. Сначала указываем маршрут. Если на него приходит POST запрос, то запускается
-	// функция RegisterHandler
-	auth.POST("/register", RegisterHandler, CheckPermissionMiddleware("users:create"))
 	// маршрут для входа
 	auth.POST("/login", LoginHandler)
 	// маршрут для получения соли
@@ -41,6 +39,8 @@ func main() {
 	// если токена нет или он с ошибкой, то к функциям ниже доступа просто нет
 	private.Use(echojwt.JWT(jwtSecret))
 
+	// функция RegisterHandler
+	private.POST("/register", RegisterHandler, CheckPermissionMiddleware("users:create"))
 	// маршрут для добавления пароля теперь внутри защищенной группы
 	private.POST("/add-pwd", AddPasswordHandler, CheckPermissionMiddleware("secrets:create"))
 	private.GET("/get-user-pwd", GetPasswordHandler)
@@ -70,11 +70,16 @@ func main() {
 	private.PUT("/pwd-edit", EditPassword, CheckPermissionMiddleware("secrets:edit"))
 	// получение всех публичных ключей пользователей, которые имеют тот или иной расшаренный пароль
 	private.POST("/get-rec-keys", GetRecipientKeys)
+	// получение всех ролей
+	private.GET("/get-all-roles", GetAllRoles, CheckPermissionMiddleware("users:create"))
 
 	// удаление оригинального пароля
 	private.POST("/del-owner-pwd", PwdDelOwner, CheckPermissionMiddleware("secrets_owner:delete"))
 	// удаление расшаренного пароля
 	private.POST("/del-shared-pwd", PwdDelShare, CheckPermissionMiddleware("secrets_shared:delete"))
+
+	// получение всех пользователей
+	private.GET("/get-users", GetUsers, CheckPermissionMiddleware("users:view"))
 
 	log := e.Group("api/log")
 	log.Use(echojwt.JWT(jwtSecret))

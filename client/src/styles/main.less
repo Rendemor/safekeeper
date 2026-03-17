@@ -22,3 +22,75 @@
   font-size: 16px;
   transition: background-color 0.2s ease;
 }
+
+
+
+
+
+
+
+// палитра на основе твоего скриншота
+@colorPrimary: #2A2EC6;      // яркий синий
+@colorSecondary: #752C77;    // пурпурный
+@colorAccent: #4C4A08;       // оливковый/горчичный
+@colorBackground: #FCFCE3;   // светлый кремовый
+@colorText: #2A2904;         // очень темный зеленый
+
+// системные цвета
+@colorSuccess: #2ecc71;      // оставлю классический зеленый для успеха
+@colorWarning: @colorAccent; // используем оливковый для предупреждений
+@colorDanger: #e74c3c;       // стандартный красный для критических ошибок
+@colorDisabled: #bdc3c7;
+
+// типографика и отступы
+@baseFontSize: 16px;
+@baseFontFamily: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+@baseBorderRadius: 12px;     // судя по скриншоту, тебе нравятся скругления побольше
+@transitionSpeed: 0.25s;
+
+// обнуление стилей
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: @baseFontFamily;
+  font-size: @baseFontSize;
+  color: @colorText;
+  background-color: @colorBackground;
+  line-height: 1.6;
+}
+
+// базовые сбросы
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  transition: all @transitionSpeed ease;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: opacity @transitionSpeed ease;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+// вспомогательные миксины
+.flexCenter() {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

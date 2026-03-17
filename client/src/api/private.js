@@ -1,6 +1,27 @@
 import { interceptorsFetch } from "../utils/interceptorsFetch"
 
 export const privateAPI = {
+    Register: async (payload = {}) => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/private/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+        } catch (err) {
+            console.error("API Error [Register]:", err)
+            throw err
+        }
+    },
+
     AddPwd: async (payload) => {
         try {
             const res = await interceptorsFetch('http://localhost:8080/api/private/add-pwd', {
@@ -390,6 +411,62 @@ export const privateAPI = {
             console.error("API Error [GetQR]:", err)
             throw err
         }
-    }
+    },
+
+    GetAllRoles: async () => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/private/get-all-roles', {
+                method: "GET",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+
+            
+            const data = await res.json()
+            if (!Array.isArray(data)) {
+                throw new Error('Сервер прислал не массив')
+            }
+
+
+            return data
+        } catch (err) {
+            console.error("API Error [GetAllRoles]:", err)
+            throw err
+        }
+    },
+
+    GetUsers: async () => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/private/get-users', {
+                method: "GET",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+            
+            const data = await res.json()
+            if (!Array.isArray(data)) {
+                throw new Error('Сервер прислал не массив')
+            }
+
+            return data
+        } catch (err) {
+            console.error("API Error [GetUsers]:", err)
+            throw err
+        }
+    },
 }
 

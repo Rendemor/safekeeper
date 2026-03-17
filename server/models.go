@@ -20,6 +20,10 @@ type User struct {
 	// связь: GORM поймет, что User принадлежит Role
 	Role Role `gorm:"constraint:OnDelete:RESTRICT"`
 
+	FirstName  string `gorm:"type:text;not null"` // имя
+	LastName   string `gorm:"type:text;not null"` // фамилия
+	Patronymic string `gorm:"type:text;not null"` // отчество
+
 	// почта
 	Email string `gorm:"unique;not null"`
 	// хеш мастер-пароля (bcrypt) исключительно для входа в систему
