@@ -1,21 +1,16 @@
 import React, { useEffect, useState } from 'react'
-import '../styles/components/ReqPwdForm.less'
-import { 
-    shareKey
-} from '../utils/crypto'
-import {useCryptoStore} from '../utils/store'
+import '../styles/components/PasswordManager.less' 
+import { shareKey } from '../utils/crypto'
+import { useCryptoStore } from '../utils/store'
 import { privateAPI } from '../api/private'
 
 // отдельный компонент для удобной отрисовки с дешифровкой
 const ReqRow = ({ item, onUpdate }) => {
     // текущее время + 7 дней
-    const getInSevenDays = () => {
-        const now = new Date();
-        // добавляем 7 дней
+    const get_in_seven_days = () => {
+        const now = new Date()
         now.setDate(now.getDate() + 7)
         
-        // форматируем под datetime-local (YYYY-MM-DDTHH:mm)
-        // используем смещение часового пояса, чтобы дата осталась локальной
         const year = now.getFullYear()
         const month = String(now.getMonth() + 1).padStart(2, '0')
         const day = String(now.getDate()).padStart(2, '0')
@@ -25,124 +20,121 @@ const ReqRow = ({ item, onUpdate }) => {
         return `${year}-${month}-${day}T${hours}:${minutes}`
     }
 
-    const [time, setTime] = useState(getInSevenDays())
-    const privateKey = useCryptoStore((state) => state.privateKey)
+    const [time, set_time] = useState(get_in_seven_days())
+    const private_key = useCryptoStore((state) => state.privateKey)
 
     // даём доступ
-    const handleGrantAccess = async () => {
-
+    const handle_grant_access = async () => {
         try {
-            // запрашиваем конкретный пароль, чтобы зашифровать его и отправить другому пользователю
             const pwd = await privateAPI.GetDEK(item.Title, item.Login)
 
             const {
-                enc_dek: encDEK,
-                id: ID
+                enc_dek: enc_dek_orig,
+                id: secret_id
             } = pwd
 
-            const alianEncDEK = await shareKey(encDEK, privateKey, item.PublicKey)
+            const alien_enc_dek = await shareKey(enc_dek_orig, private_key, item.PublicKey)
 
-            // превращаем время в объект "Дата"
-            const dateObject = new Date(time)
-            // превращаем в формат "2026-03-08T13:30:00.000Z"
-            const formattedTime = dateObject.toISOString()
+            const date_object = new Date(time)
+            const formatted_time = date_object.toISOString()
 
             await privateAPI.PwdAcsApp({
                 Title: item.Title,
-                // ID пароля из таблицы паролей
-                SecretID: ID,
-                // ID владельца пароля
+                SecretID: secret_id,
                 OwnerID: item.UserIDTo,
-                // ID пользователя, который имеет к нему доступ
                 RecipientID: item.UserIDFrom,
-                // DEK, зашифрованный публичным ключом нового владельца
-                SharedEncryptedDEK: alianEncDEK,
-                ExpiresAt: formattedTime,
+                SharedEncryptedDEK: alien_enc_dek,
+                ExpiresAt: formatted_time,
             })
 
             onUpdate()
         } catch (err) {
+            console.error("ОШИБКА ПРЕДОСТАВЛЕНИЯ ДОСТУПА:", err)
             alert("Ошибка предоставления доступа")
         }
     }
 
     // отклоняем
-    const handleRejectAccess = async (e) => {
-        try{
+    const handle_reject_access = async () => {
+        try {
             await privateAPI.PwdAcsRej({
                 Title: item.Title,
                 ID: item.UserIDFrom,
             })
             onUpdate()
         } catch (err) {
+            console.error("ОШИБКА ОТКЛОНЕНИЯ ДОСТУПА:", err)
             alert("Ошибка отклонения доступа")
         }
     }
 
     return (
-        <tr>
-            <td>{item.Title}</td>
-            <td>
-                <button className="vault-copy-btn" onClick={handleGrantAccess}>
-                    Дать доступ
-                </button>
-
-                <button className="vault-copy-btn" onClick={handleRejectAccess}>
-                    Отклонить
-                </button>
-            </td>
-            <td>
+        <tr className="VaultRow">
+            <td className="VaultRow__cell VaultRow__cell--title">{item.Title}</td>
+            <td className="VaultRow__cell VaultRow__cell--login">{item.Login || '—'}</td>
+            <td className="VaultRow__cell VaultRow__cell--password">
                 <input 
                     type="datetime-local"
-                    className="form-group-input"   
                     value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    required          
+                    onChange={(e) => set_time(e.target.value)}
+                    className="VaultRow__input"
                 />
+            </td>
+            <td className="VaultRow__cell VaultRow__cell--actions">
+                {/* Группа 1: Основные действия */}
+                <div className="VaultRow__group">
+                    <button className="VaultRow__button VaultRow__button--primary" onClick={handle_grant_access}>
+                        Дать доступ
+                    </button>
+                </div>
+
+                {/* Группа 2: Отмена */}
+                <div className="VaultRow__group">
+                    <button className="VaultRow__button VaultRow__button--danger" onClick={handle_reject_access}>
+                        Отклонить
+                    </button>
+                </div>
             </td>
         </tr>
     )
 }
 
 function ReqPwdForm() {
-    const [req, setReq] = useState([])
+    const [requests, set_requests] = useState([])
 
-    const fetchReq = async () => {
+    const fetch_requests = async () => {
         try {
             const data = await privateAPI.PwdAcsReq()
-            setReq(data)
+            set_requests(data)
         } catch (err) {
-            setReq([])
+            console.error("ОШИБКА ПОЛУЧЕНИЯ ЗАПРОСОВ:", err)
+            set_requests([])
         }
     }
 
-    // при отрисовке вызывается автоматически
     useEffect(() => {
-        fetchReq()
+        fetch_requests()
     }, [])
 
     return (
-        <div className="vault">
-            <h2 className="vault-title">Запросы паролей</h2>
+        <div className="Vault">
+            <h2 className="Vault__title">Запросы паролей</h2>
             
-            <table className="vault-table">
-                <thead>
+            <table className="Vault__table">
+                <thead className="Vault__head">
                     <tr>
-                        <th>Сайт</th>
-                        <th>Действие</th>
-                        <th>Время доступа, ч</th>
+                        <th className="Vault__th">Сайт</th>
+                        <th className="Vault__th">Логин</th>
+                        <th className="Vault__th">Срок доступа до</th>
+                        <th className="Vault__th">Действие</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {/* просто итератор. Вся отрисовка выше, тут только перебираем запросы на получение паролей */}
-                    {req.map((item) => (
+                <tbody className="Vault__body">
+                    {requests.map((item) => (
                         <ReqRow 
                             key={item.ID} 
                             item={item} 
-                            // передаём ребёнку доступ к функции, которая отправляет запрос в БД для получения всех запросов
-                            // это необходимо, чтобы когда доступ был предоставлен или наоборот был запрещён, произошёл запрос
-                            // в БД и были получены актуальные данные. Это самый безопасный вариант
-                            onUpdate={fetchReq}
+                            onUpdate={fetch_requests}
                         />
                     ))}
                 </tbody>

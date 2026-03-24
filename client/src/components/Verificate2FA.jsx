@@ -23,32 +23,46 @@ function Verificate2FA ( {setPage, setIs2FAVerified} ) {
     }
 
     return (
-        <div className="setup">
-            <h2 className="setup-title">Проверка кода</h2>
+        <div className="RegForm">
+            <div className="RegForm__card">
+                <h2 className="RegForm__title">Проверка кода</h2>
 
-            <form className="setup-form" onSubmit={handleSubmit}>
-                <div className="form-group">
-                <label className="form-group-label">Введите 6-значный код</label>
-                <input
-                    type="text"
-                    className="form-group-input"
-                    placeholder="000000"
-                    maxLength="6"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                />
-                </div>
+                <form onSubmit={handleSubmit} className="RegForm__form">
+                    <div className="RegForm__field">
+                        <label htmlFor="code" className="RegForm__label">Введите 6-значный код</label>
+                        <input
+                            type="text"
+                            id="code"
+                            className="RegForm__input"
+                            placeholder="000000"
+                            maxLength="6"
+                            value={code}
+                            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                            style={{
+                                fontSize: '24px',
+                                textAlign: 'center',
+                                letterSpacing: '4px',
+                                fontWeight: 'bold'
+                            }}
+                            required
+                        />
+                    </div>
 
-                <button type="submit" className="setup-button" disabled={code.length !== 6}>
-                    Подтвердить
-                </button>
-            </form>
+                    <button 
+                        type="submit" 
+                        className="RegForm__button"
+                        disabled={code.length !== 6}
+                    >
+                        Подтвердить
+                    </button>
+                </form>
 
-            {message && (
-                <p className={`setup-message ${isError ? 'setup-message--error' : 'setup-message--success'}`}>
-                {message}
-            </p>
-            )}
+                {message && (
+                    <p className={`RegForm__message ${isError ? 'RegForm__message--error' : 'RegForm__message--success'}`}>
+                        {message}
+                    </p>
+                )}
+            </div>
         </div>
     )
 }

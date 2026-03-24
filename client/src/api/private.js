@@ -468,5 +468,163 @@ export const privateAPI = {
             throw err
         }
     },
+
+    GetPermissions: async () => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/private/get-permissions', {
+                method: "GET",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+            
+            const data = await res.json()
+            if (!Array.isArray(data)) {
+                throw new Error('Сервер прислал не массив')
+            }
+
+            return data
+        } catch (err) {
+            console.error("API Error [GetPermissions]:", err)
+            throw err
+        }
+    },
+
+    CreateRole: async (payload = {}) => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/private/create-role', {
+                method: "POST",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+        } catch (err) {
+            console.error("API Error [CreatRole]:", err)
+            throw err
+        }
+    },
+
+    BlockedUser: async (uuid = '') => {
+        try {
+            const res = await interceptorsFetch(
+                `http://localhost:8080/api/private/user-blocked?uuid=${uuid}`, {
+                method: "POST",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+        } catch (err) {
+            console.error("API Error [BlockedUser]:", err)
+            throw err
+        }
+    },
+
+    UnblockedUser: async (uuid = '') => {
+        try {
+            const res = await interceptorsFetch(
+                `http://localhost:8080/api/private/user-unblocked?uuid=${uuid}`, {
+                method: "POST",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+        } catch (err) {
+            console.error("API Error [UnblockedUser]:", err)
+            throw err
+        }
+    },
+
+    DeleteUser: async (uuid = '') => {
+        try {
+            const res = await interceptorsFetch(
+                `http://localhost:8080/api/private/user-del?uuid=${uuid}`, {
+                method: "POST",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+        } catch (err) {
+            console.error("API Error [DeleteUser]:", err)
+            throw err
+        }
+    },
+
+    GetRoles: async () => {
+        try {
+            const res = await interceptorsFetch(
+                'http://localhost:8080/api/private/get-roles', {
+                method: "GET",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+            
+            const data = await res.json()
+            if (!Array.isArray(data)) {
+                throw new Error('Сервер прислал не массив')
+            }
+
+            return data
+        } catch (err) {
+            console.error("API Error [GetRoles]:", err)
+            throw err
+        }
+    },
+
+    GetRole: async (id) => {
+        try {
+            const res = await interceptorsFetch(
+                `http://localhost:8080/api/private/get-role?id=${id}`, {
+                method: "GET",
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+
+            if(!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Ошибка сервера')
+            }
+            
+            return await res.json()
+        } catch (err) {
+            console.error("API Error [GetRole]:", err)
+            throw err
+        }
+    },
 }
 

@@ -1,74 +1,286 @@
-@import "../main.less"; // чтобы использовать цвета
+// PasswordManager.less
 
-.vault {
+// Импорт переменных (предполагается, что main.less подключен)
+@import '../main.less';
+
+// ============================================
+// Блок Vault - основной контейнер менеджера паролей
+// ============================================
+.Vault {
     width: 100%;
-    margin: 50px auto;
-    padding: 20px;
-    background: #fff;
+    max-width: 1400px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: lighten(@colorBackground, 2%);
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 
+        0 4px 6px rgba(0, 0, 0, 0.05),
+        0 1px 3px rgba(0, 0, 0, 0.08);
 
-    &-title {
-        text-align: center;
-        color: @text-color;
-        margin-bottom: 25px;
+    // Заголовок
+    &__title {
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: @colorText;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid fade(@colorPrimary, 20%);
     }
 
-    &-table {
+    // Таблица
+    &__table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0 0.5rem; // отступы между строками
+    }
+
+    // Шапка таблицы
+    &__head {
+        background-color: @colorPrimary;
         
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
-        }
-
-        th {
-            background-color: #f8f9fa;
-            color: #666;
-            font-weight: 600;
-        }
-
-        tr:hover {
-            background-color: #fcfcfc;
+        tr {
+            box-shadow: none;
         }
     }
 
-    &-input-readonly {
-        border: none;
-        background: transparent;
-        font-family: monospace;
-        width: 100px;
+    // Заголовки колонок
+    &__th {
+        padding: 1rem 1.25rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: @colorBackground;
+        
+        &:first-child {
+            border-radius: 8px 0 0 8px;
+        }
+        
+        &:last-child {
+            border-radius: 0 8px 8px 0;
+        }
     }
 
-    &-copy-btn {
-        padding: 5px 10px;
-        font-size: 12px;
-        background-color: @primary-color;
-        color: white;
+    // Тело таблицы
+    &__body {
+        // стили для строк внутри
+    }
+
+    // Кнопка добавления
+    &__addBtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 500;
+        color: @colorBackground;
+        background-color: @colorPrimary;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
         cursor: pointer;
-
+        transition: all 0.2s ease;
+        
         &:hover {
-            background-color: darken(@primary-color, 10%);
+            background-color: darken(@colorPrimary, 8%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px fade(@colorPrimary, 30%);
+        }
+        
+        &:active {
+            transform: translateY(0);
+        }
+    }
+}
+
+// ============================================
+// Блок VaultRow - строка таблицы
+// ============================================
+.VaultRow {
+    background-color: #fff;
+    transition: all 0.25s ease;
+    box-shadow: 
+        0 1px 3px rgba(0, 0, 0, 0.04),
+        0 1px 2px rgba(0, 0, 0, 0.06);
+    
+    // Эффект "поднятия" при наведении
+    &:hover {
+        transform: translateY(-3px);
+        box-shadow: 
+            0 8px 16px rgba(0, 0, 0, 0.08),
+            0 4px 8px rgba(0, 0, 0, 0.06);
+        background-color: fade(@colorPrimary, 3%);
+        
+        .VaultRow__cell {
+            border-color: fade(@colorPrimary, 25%);
         }
     }
 
-    &-add-btn {
-        display: block;
-        margin: 20px auto 0;
-        padding: 10px 20px;
-        background-color: #28a745;
-        color: white;
+    // Ячейки
+    &__cell {
+        padding: 1rem 1.25rem;
+        color: @colorText;
+        font-size: 0.9375rem;
+        border-top: 1px solid fade(@colorText, 8%);
+        border-bottom: 1px solid fade(@colorText, 8%);
+        transition: border-color 0.25s ease;
+        
+        &:first-child {
+            border-left: 1px solid fade(@colorText, 8%);
+            border-radius: 8px 0 0 8px;
+        }
+        
+        &:last-child {
+            border-right: 1px solid fade(@colorText, 8%);
+            border-radius: 0 8px 8px 0;
+        }
+
+        // Модификаторы ячеек
+        &--title {
+            font-weight: 600;
+            color: @colorPrimary;
+            min-width: 150px;
+        }
+
+        &--login {
+            color: @colorText;
+            min-width: 180px;
+        }
+
+        &--password {
+            min-width: 160px;
+        }
+
+        &--actions {
+            min-width: 320px;
+        }
+    }
+
+    // Инпут для пароля
+    &__input {
+        width: 100%;
+        max-width: 140px;
+        padding: 0.5rem 0.75rem;
+        font-family: monospace;
+        font-size: 0.875rem;
+        color: @colorText;
+        background-color: fade(@colorText, 5%);
+        border: 1px solid fade(@colorText, 12%);
+        border-radius: 6px;
+        outline: none;
+        transition: all 0.2s ease;
+        
+        &:focus {
+            border-color: @colorPrimary;
+            background-color: #fff;
+            box-shadow: 0 0 0 3px fade(@colorPrimary, 15%);
+        }
+    }
+
+    // Группа кнопок
+    &__group {
+        display: inline-flex;
+        gap: 0.5rem;
+        margin-right: 0.75rem;
+        
+        &:last-child {
+            margin-right: 0;
+        }
+    }
+
+    // Базовые стили кнопок
+    &__button {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        font-weight: bold;
+        transition: all 0.2s ease;
+        white-space: nowrap;
 
-        &:hover {
-            background-color: darken(#28a745, 10%);
+        &:active {
+            transform: scale(0.97);
+        }
+
+        // Вторичная кнопка (Показать, Копировать)
+        &--secondary {
+            color: @colorText;
+            background-color: fade(@colorText, 8%);
+            border: 1px solid fade(@colorText, 15%);
+            
+            &:hover {
+                background-color: fade(@colorText, 15%);
+                border-color: fade(@colorText, 25%);
+            }
+        }
+
+        // Основная кнопка (Поделиться, Изменить)
+        &--primary {
+            color: #fff;
+            background-color: @colorPrimary;
+            
+            &:hover {
+                background-color: darken(@colorPrimary, 10%);
+                box-shadow: 0 2px 8px fade(@colorPrimary, 35%);
+            }
+        }
+
+        // Кнопка опасности (Удалить)
+        &--danger {
+            color: #fff;
+            background-color: @colorDanger;
+            
+            &:hover {
+                background-color: darken(@colorDanger, 8%);
+                box-shadow: 0 2px 8px fade(@colorDanger, 35%);
+            }
+        }
+
+        // Отключенная кнопка
+        &:disabled {
+            background-color: @colorDisabled;
+            color: darken(@colorDisabled, 20%);
+            cursor: not-allowed;
+            box-shadow: none;
+            
+            &:hover {
+                transform: none;
+            }
+        }
+    }
+}
+
+// ============================================
+// Адаптивность
+// ============================================
+@media (max-width: 1200px) {
+    .Vault {
+        margin: 1rem;
+        max-width: calc(100% - 2rem);
+    }
+}
+
+@media (max-width: 768px) {
+    .Vault {
+        padding: 1rem;
+        
+        &__table {
+            display: block;
+            overflow-x: auto;
+        }
+    }
+    
+    .VaultRow {
+        &__group {
+            flex-direction: column;
+            margin-right: 0.5rem;
+        }
+        
+        &__cell--actions {
+            min-width: 280px;
         }
     }
 }

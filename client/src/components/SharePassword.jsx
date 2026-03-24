@@ -66,54 +66,59 @@ function SharePassword({setPage, item}) {
     }
 
     return (
-        <div className="add">
-            <h2 className="add-title">Поделиться паролем</h2>
+        <div className="RegForm">
+            <div className="RegForm__card">
+                <h2 className="RegForm__title">Поделиться паролем</h2>
 
-            <form onSubmit={handleSubmit} className="add-form">
-                <div className="form-group">
-                    <label className="form-group-label">Название сайта</label>
-                    <input
-                        type="text"
-                        className="form-group-input"
-                        value={site}
-                        onChange={(e) => setSite(e.target.value)}
-                        required
-                        placeholder="например, VK или Google"
-                    />
-                </div>
+                <form onSubmit={handleSubmit} className="RegForm__form">
+                    <div className="RegForm__field">
+                        <label htmlFor="site" className="RegForm__label">Название сайта</label>
+                        <input
+                            type="text"
+                            id="site"
+                            className="RegForm__input"
+                            value={site}
+                            onChange={(e) => setSite(e.target.value)}
+                            required
+                            placeholder="например, VK или Google"
+                        />
+                    </div>
 
-                <div className="form-group">
-                    <label className="form-group-label">Логин (Email)</label>
-                    <input
-                        type="text"
-                        className="form-group-input"
-                        value={login}
-                        onChange={(e) => setLogin(e.target.value)}
-                        required
-                    />
-                </div>
+                    <div className="RegForm__field">
+                        <label htmlFor="login" className="RegForm__label">Логин (Email)</label>
+                        <input
+                            type="text"
+                            id="login"
+                            className="RegForm__input"
+                            value={login}
+                            onChange={(e) => setLogin(e.target.value)}
+                            required
+                        />
+                    </div>
 
-                <div className="form-group">
-                    <label className="form-group-label">Почта получателя</label>
-                    <input
-                        type="text"
-                        className="form-group-input"
-                        value={email} 
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-                </div>
+                    <div className="RegForm__field">
+                        <label htmlFor="email" className="RegForm__label">Почта получателя</label>
+                        <input
+                            type="text"
+                            id="email"
+                            className="RegForm__input"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                        />
+                    </div>
 
-                <button type="submit" className="login-button">
-                    Отправить пароль
-                </button>
-            </form>
+                    <button type="submit" className="RegForm__button">
+                        Отправить пароль
+                    </button>
+                </form>
 
-            {message && (
-                <p className={`login-message ${isError ? 'login-message--error' : 'login-message--success'}`}>
-                    {message}
-                </p>
-            )}
+                {message && (
+                    <p className={`RegForm__message ${isError ? 'RegForm__message--error' : 'RegForm__message--success'}`}>
+                        {message}
+                    </p>
+                )}
+            </div>
         </div>
     )
 }

@@ -10,6 +10,11 @@ var userPermissions = []Permission{
 	{Name: "Удаление пользователей", Code: "users:delete"},
 	{Name: "Редактирование пользователей", Code: "users:update"},
 	{Name: "Просмотр пользователей", Code: "users:view"},
+	{Name: "Блокировка/разблокировка пользователей", Code: "users:set_blocked"},
+	{Name: "Создание ролей", Code: "role:create"},
+	{Name: "Изменение ролей", Code: "role:update"},
+	{Name: "Удаление ролей", Code: "role:delete"},
+	{Name: "Просмотр ролей", Code: "role:view"},
 }
 
 var secretPermissions = []Permission{

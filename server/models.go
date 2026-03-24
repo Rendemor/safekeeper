@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // User - таблица пользователей
@@ -36,16 +37,21 @@ type User struct {
 	EncryptedPrivateKey string `gorm:"type:text;not null"`
 	// секретный ключ для генерации кодов для двухфакторной аутентификации
 	OTPSecret string
-	// по идее это временное поле. В идеале его убрать, поскольку 2FA для менеджера паролей это базовый минимум, а не выбор пользователя
+	// надо для принудительного подключения 2FA, поскольку админы просто создают аккаунты, но не подключают 2FA
 	OTPEnabled bool
+	// проверка заблокирован ли пользователь
+	Blocked bool `grom:"default:false"`
 	// время создания аккаунта
 	CreatedAt time.Time
+	// удобная функция gorm. Автоматически приписывает проверку, что DeletedAt != nil
+	DeletedAt gorm.DeletedAt
 }
 
 // таблица зашифрованных паролей
 type Secret struct {
 	// id записи
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ID   uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	User User      `gorm:"constraint:OnDelete:CASCADE"`
 	// владелец пароля
 	UserID uuid.UUID `gorm:"type:uuid;not null"`
 	// название сервиса
@@ -60,6 +66,7 @@ type Secret struct {
 	EncryptionNonce string `gorm:"type:text;not null"`
 	// Время последнего обновления
 	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt
 }
 
 // логирование действий
@@ -73,6 +80,7 @@ type AuditLog struct {
 	// информация о браузере/устройстве
 	UserAgent string
 	CreatedAt time.Time
+	DeletedAt gorm.DeletedAt
 }
 
 // таблица с запросами для получения пароля
@@ -88,12 +96,14 @@ type PasswordAccessRequest struct {
 	// публичный ключ того, кто запросил пароль для шифрования
 	PublicKey string `gorm:"type:text;not null"`
 	CreatedAt time.Time
+	DeletedAt gorm.DeletedAt
 }
 
 type SharedSecret struct {
 	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	// Кто поделился (владелец)
 	OwnerID uuid.UUID `gorm:"type:uuid;not null"`
+	Secret  Secret    `gorm:"constraint:OnDelete:CASCADE"`
 
 	// Ссылка на оригинальный секрет и кому дали доступ. Важно, это зависимые поля. Такая связка строго уникальна
 	SecretID    uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_secret_recipient"`
@@ -106,12 +116,14 @@ type SharedSecret struct {
 	// Время истечения доступа (nil, если бессрочно)
 	ExpiresAt *time.Time
 	CreatedAt time.Time
+	DeletedAt gorm.DeletedAt
 }
 
 // роли
 type Role struct {
-	ID   int    `gorm:"primaryKey"`
-	Name string `gorm:"size:50;not null;unique"`
+	ID        int    `gorm:"primaryKey"`
+	Name      string `gorm:"size:50;not null;unique"`
+	DeletedAt gorm.DeletedAt
 }
 
 // права
@@ -133,4 +145,5 @@ type RolePermission struct {
 	// Указываем связи для GORM
 	Role       Role       `gorm:"constraint:OnDelete:CASCADE;"`
 	Permission Permission `gorm:"constraint:OnDelete:CASCADE;"`
+	DeletedAt  gorm.DeletedAt
 }

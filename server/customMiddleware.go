@@ -41,3 +41,22 @@ func CheckPermissionMiddleware(requiredPermission string) echo.MiddlewareFunc {
 		}
 	}
 }
+
+func CheckBlocked(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		userID, _ := getUserIDuuid(c)
+
+		var isBlocked bool
+		err := DB.Model(&User{}).Select("blocked").Where("id = ?", userID).Scan(&isBlocked).Error
+
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка проверки статуса"})
+		}
+
+		if isBlocked {
+			return c.JSON(http.StatusUnauthorized, APIError{Error: "Ваш аккаунт заблокирован"})
+		}
+
+		return next(c)
+	}
+}

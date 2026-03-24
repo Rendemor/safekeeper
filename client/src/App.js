@@ -13,6 +13,9 @@ import EditPassword from './components/EditPassword'
 import { useCryptoStore } from './utils/store'
 import { HasPermission } from './components/HasPermission'
 import AdminPanel from './components/ViewUsers'
+import RoleCreate from './components/RoleCreate'
+import ViewRoles from './components/ViewRoles'
+import EditRole from './components/EditRole'
 
 function App() { 
   const [page, setPage] = useState('login') // переключение между формами
@@ -20,6 +23,7 @@ function App() {
   const [is2FAVerified, setIs2FAVerified] = useState(false) // прошел ли пользователь проверку прямо сейчас
   // хранит выбранный проль для передачи его в компонент edit
   const [selectedPassword, setSelectedPassword] = useState(null)
+  const [selectedRole, setSelectedRole] = useState(null)
 
   const logout = useCryptoStore((state) => state.logout)
   const isAuthenticated = useCryptoStore((state) => state.isAuthenticated)
@@ -38,6 +42,11 @@ function App() {
     setSelectedPassword(pwd)
     // меняем компонент отрисовки
     setPage('pwd-share')         
+  }
+
+  const editRole = (id) => {
+    setSelectedRole(id)
+    setPage('role-update')
   }
 
   // проверка состояния сессии при загрузке или изменении ключа
@@ -83,6 +92,9 @@ function App() {
         case 'pwd-req': return <PwdReq />
         case 'pwd-share': return <SharePassword setPage={setPage} item={selectedPassword} /> 
         case 'admin-panel': return <AdminPanel></AdminPanel>
+        case 'role-create': return <RoleCreate setPage={() => setPage('vault')}></RoleCreate>
+        case 'role-view': return <ViewRoles onEdit={editRole}></ViewRoles>
+        case 'role-update': return <EditRole setPage={setPage} id={selectedRole}></EditRole>
         case 'pwd-edit': 
         return <EditPassword  
           existingData={selectedPassword} 
@@ -165,6 +177,29 @@ function App() {
                     </button>
                   </li>
                 </HasPermission>
+
+                <HasPermission permission="role:create">
+                  <li className="Header__item">
+                    <button 
+                      className={`Header__link ${page === 'role-create' ? 'Header__link--active' : ''}`} 
+                      onClick={() => setPage('role-create')}
+                    >
+                      Создание ролей
+                    </button>
+                  </li>
+                </HasPermission>
+
+                <HasPermission permission="role:update">
+                  <li className="Header__item">
+                    <button 
+                      className={`Header__link ${page === 'role-view' ? 'Header__link--active' : ''}`} 
+                      onClick={() => setPage('role-view')}
+                    >
+                      Роли
+                    </button>
+                  </li>
+                </HasPermission>
+
                 <HasPermission permission="users:view">
                   <li className="Header__item">
                     <button 

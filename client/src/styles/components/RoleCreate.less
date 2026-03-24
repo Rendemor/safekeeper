@@ -1,0 +1,262 @@
+// RoleForm.less — Вариант 3: Компактный с боковой полосой (финальный)
+
+@import '../main.less';
+
+.RoleForm {
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+
+    &__card {
+        position: relative;
+        width: 100%;
+        max-width: 650px;
+        padding: 1.75rem 1.75rem 1.75rem 2.25rem;
+        background-color: #fff;
+        border-radius: 0 12px 12px 0;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+
+        &::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: linear-gradient(180deg, @colorPrimary 0%, @colorSecondary 100%);
+            border-radius: 12px 0 0 12px;
+        }
+    }
+
+    &__title {
+        margin: 0 0 1.5rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: @colorPrimary;
+    }
+
+    &__field {
+        margin-bottom: 1.25rem;
+    }
+
+    &__label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: fade(@colorText, 55%);
+    }
+
+    &__input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 0.9375rem;
+        color: @colorText;
+        background-color: #fff;
+        border: 1px solid fade(@colorText, 15%);
+        border-radius: 8px;
+        outline: none;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+
+        &:hover {
+            border-color: fade(@colorText, 25%);
+        }
+
+        &:focus {
+            border-color: @colorPrimary;
+            box-shadow: 0 0 0 3px fade(@colorPrimary, 10%);
+        }
+
+        &::placeholder {
+            color: fade(@colorText, 40%);
+        }
+    }
+
+    &__chips {
+        min-height: 44px;
+        padding: 0.625rem;
+        background-color: fade(@colorPrimary, 4%);
+        border: 1px dashed fade(@colorPrimary, 25%);
+        border-radius: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: flex-start;
+    }
+
+    &__placeholder {
+        font-size: 0.8125rem;
+        color: fade(@colorText, 40%);
+    }
+
+    &__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: @colorPrimary;
+        background-color: #fff;
+        border: 1px solid fade(@colorPrimary, 30%);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        &:hover {
+            color: #fff;
+            background-color: @colorDanger;
+            border-color: @colorDanger;
+        }
+    }
+
+    &__chipRemove {
+        font-size: 0.875rem;
+        line-height: 1;
+        margin-left: 0.125rem;
+    }
+
+    &__selects {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    &__selectGroup {
+        flex: 0 0 auto;
+        width: 160px;
+        min-width: 140px;
+        max-width: 180px;
+    }
+
+    &__category {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: @colorSecondary;
+    }
+
+    &__select {
+        width: 100%;
+        padding: 0.5rem 1.75rem 0.5rem 0.625rem;
+        font-size: 0.8125rem;
+        font-family: inherit;
+        color: @colorText;
+        background-color: @colorBackground;
+        border: 1px solid fade(@colorText, 10%);
+        border-radius: 6px;
+        cursor: pointer;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%232A2904' d='M4 6L0 1h8z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        transition: all 0.15s ease;
+
+        &:hover {
+            border-color: fade(@colorPrimary, 40%);
+            background-color: darken(@colorBackground, 2%);
+        }
+
+        &:focus {
+            border-color: @colorPrimary;
+            box-shadow: 0 0 0 3px fade(@colorPrimary, 12%);
+        }
+
+        // Стили для option (ограниченная поддержка браузерами)
+        option {
+            padding: 0.5rem;
+            font-size: 0.875rem;
+            color: @colorText;
+            background-color: #fff;
+
+            &:disabled {
+                color: fade(@colorText, 40%);
+                font-style: italic;
+            }
+
+            &:checked {
+                background-color: fade(@colorPrimary, 15%);
+                color: @colorPrimary;
+            }
+
+            &:hover {
+                background-color: @colorBackground;
+            }
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.75rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid fade(@colorText, 10%);
+    }
+
+    &__button {
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &--primary {
+            color: #fff;
+            background: linear-gradient(135deg, @colorSuccess 0%, darken(@colorSuccess, 8%) 100%);
+            border: none;
+
+            &:hover {
+                box-shadow: 0 4px 12px fade(@colorSuccess, 40%);
+                transform: translateY(-1px);
+            }
+        }
+
+        &--secondary {
+            color: fade(@colorText, 65%);
+            background-color: transparent;
+            border: 1px solid fade(@colorText, 15%);
+
+            &:hover {
+                border-color: @colorDanger;
+                color: @colorDanger;
+            }
+        }
+
+        &:active {
+            transform: translateY(0);
+        }
+    }
+}
+
+@media (max-width: 500px) {
+    .RoleForm {
+        padding: 1rem;
+
+        &__card {
+            padding: 1.25rem 1.25rem 1.25rem 1.5rem;
+        }
+
+        &__selects {
+            flex-direction: column;
+        }
+
+        &__selectGroup {
+            width: 100%;
+            max-width: none;
+        }
+
+        &__actions {
+            flex-direction: column;
+        }
+    }
+}

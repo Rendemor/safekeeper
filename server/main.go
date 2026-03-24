@@ -38,6 +38,8 @@ func main() {
 	// подключаем Middleware. Оно будет проверять заголовок Authorization: Bearer <token>
 	// если токена нет или он с ошибкой, то к функциям ниже доступа просто нет
 	private.Use(echojwt.JWT(jwtSecret))
+	// навешиваем на всю группу маршрутов middleware для проверки "заблокирован ли пользователь"
+	private.Use(CheckBlocked)
 
 	// функция RegisterHandler
 	private.POST("/register", RegisterHandler, CheckPermissionMiddleware("users:create"))
@@ -67,7 +69,7 @@ func main() {
 	// та же соль, что и раньше, но по jwt токену
 	private.GET("/get-salt", GetSaltByJWT)
 	// меняем пароль
-	private.PUT("/pwd-edit", EditPassword, CheckPermissionMiddleware("secrets:edit"))
+	private.PUT("/pwd-edit", EditPassword, CheckPermissionMiddleware("secrets_owner:update"))
 	// получение всех публичных ключей пользователей, которые имеют тот или иной расшаренный пароль
 	private.POST("/get-rec-keys", GetRecipientKeys)
 	// получение всех ролей
@@ -80,6 +82,22 @@ func main() {
 
 	// получение всех пользователей
 	private.GET("/get-users", GetUsers, CheckPermissionMiddleware("users:view"))
+
+	// получение всех прав
+	private.GET("/get-permissions", GetPermissions, CheckPermissionMiddleware("role:create"))
+	// создание ролей
+	private.POST("/create-role", AddRole, CheckPermissionMiddleware("role:create"))
+
+	// блокируем пользователя
+	private.POST("/user-blocked", BlockedUser, CheckPermissionMiddleware("users:set_blocked"))
+	// разблокируем пользователя
+	private.POST("/user-unblocked", UnblockedUser, CheckPermissionMiddleware("users:set_blocked"))
+	// удаляем пользователя
+	private.POST("/user-del", DeleteUser, CheckPermissionMiddleware("users:delete"))
+	// получение всех ролей
+	private.GET("/get-roles", GetRoles, CheckPermissionMiddleware("role:view"))
+	// получение одной роли
+	private.GET("/get-role", GetRole, CheckPermissionMiddleware("role:view"))
 
 	log := e.Group("api/log")
 	log.Use(echojwt.JWT(jwtSecret))

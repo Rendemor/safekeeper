@@ -71,44 +71,47 @@ function LoginForm({setPage, setOTPEnable}) {
     }
 
     return (
-        <div className="login">
-            <h2 className="login-title">Войти в аккаунт</h2>
+        <div className="RegForm">
+            <div className="RegForm__card">
+                <h2 className="RegForm__title">Войти в аккаунт</h2>
 
-            <form onSubmit={handleSubmit} className="login-form">
-                <div className="form-group">
-                    <label htmlFor="email" className="form-group-label">Email</label>
-                    <input
-                        type="email"
-                        className="form-group-input"
-                        value={email} // указываем, что значение в поле равно значению переменной
-                        onChange={(e) => setEmail(e.target.value)} // в случае изменения значения, вызываем функцию изменения значения email
-                        required
-                    />
-                </div>
+                <form onSubmit={handleSubmit} className="RegForm__form">
+                    <div className="RegForm__field">
+                        <label htmlFor="email" className="RegForm__label">Email</label>
+                        <input
+                            type="email"
+                            id="email"
+                            className="RegForm__input"
+                            value={email} // указываем, что значение в поле равно значению переменной
+                            onChange={(e) => setEmail(e.target.value)} // в случае изменения значения, вызываем функцию изменения
+                            required
+                        />
+                    </div>
 
-                <div className="form-group">
-                    <label htmlFor="pass" className="form-group-label">Пароль</label>
-                    <input
-                        type="password"
-                        className="form-group-input"
-                        // аналогично случаю с email
-                        value={password} 
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
+                    <div className="RegForm__field">
+                        <label htmlFor="pass" className="RegForm__label">Пароль</label>
+                        <input
+                            type="password"
+                            id="pass"
+                            className="RegForm__input"
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
 
-                <button type="submit" className="login-button">
-                    Войти
-                </button>
-            </form>
+                    <button type="submit" className="RegForm__button">
+                        Войти
+                    </button>
+                </form>
 
-            {/* если massage не пустой, то будет отрисовываться новый блок с сообщением с сервера */}
-            {message && (
-                <p className={`login-message ${isError ? 'login-message--error' : 'login-message--success'}`}>
-                    {message}
-                </p>
-            )}
+                {/* если message не пустой, то отрисовываем блок с сообщением */}
+                {message && (
+                    <p className={`RegForm__message ${isError ? 'RegForm__message--error' : 'RegForm__message--success'}`}>
+                        {message}
+                    </p>
+                )}
+            </div>
         </div>
     )
 }

@@ -76,69 +76,77 @@ function EditPassword({existingData, onSave, onCancel}) {
     }
 
     return (
-        <div className="edit">
-            <h2 className="edit-title">Изменить пароль</h2>
+        <div className="RegForm">
+            <div className="RegForm__card">
+                <h2 className="RegForm__title">Изменить пароль</h2>
 
-            <form onSubmit={handleSubmit} className="edit-form">
-                <div className="form-group">
-                    <label className="form-group-label">Название сайта</label>
-                    <input
-                        type="text"
-                        className="form-group-input"
-                        value={site}
-                        onChange={(e) => setSite(e.target.value)}
-                        required
-                        placeholder="например, VK или Google"
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label className="form-group-label">Логин (Email)</label>
-                    <input
-                        type="text"
-                        className="form-group-input"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label className="form-group-label">Пароль от сайта</label>
-                    <div className="password-wrapper">
+                <form onSubmit={handleSubmit} className="RegForm__form">
+                    <div className="RegForm__field">
+                        <label htmlFor="site" className="RegForm__label">Название сайта</label>
                         <input
-                            type={showPassword ? "text" : "password"}
-                            className="form-group-input"
-                            value={password} 
-                            onChange={(e) => setPassword(e.target.value)}
+                            type="text"
+                            id="site"
+                            className="RegForm__input"
+                            value={site}
+                            onChange={(e) => setSite(e.target.value)}
                             required
                         />
+                    </div>
+
+                    <div className="RegForm__field">
+                        <label htmlFor="email" className="RegForm__label">Логин (Email)</label>
+                        <input
+                            type="text"
+                            id="email"
+                            className="RegForm__input"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    <div className="RegForm__field">
+                        <label htmlFor="pass" className="RegForm__label">Пароль от сайта</label>
+                        <div className="RegForm__input-wrapper">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                id="pass"
+                                className="RegForm__input"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                            />
+                            <button 
+                                type="button" 
+                                className="RegForm__toggle"
+                                onClick={() => setShowPassword(!showPassword)}
+                                tabIndex="-1"
+                            >
+                                {showPassword ? "Скрыть" : "Показать"}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="RegForm__actions">
+                        <button type="submit" className="RegForm__button">
+                            Сохранить
+                        </button>
                         <button 
                             type="button" 
-                            className="password-toggle"
-                            onClick={() => setShowPassword(!showPassword)}
-                            tabIndex="-1"
+                            className="RegForm__button RegForm__button--danger" 
+                            onClick={onCancel}
                         >
-                            {showPassword ? "Скрыть" : "Показать"} 
+                            Отмена
                         </button>
                     </div>
-                </div>
+                </form>
 
-                <div className="edit-buttons">
-                    <button type="submit" className="edit-button">
-                        Сохранить
-                    </button>
-                    <button type="button" className="edit-button cancel" onClick={onCancel}>
-                        Отмена
-                    </button>
-                </div>
-            </form>
-
-            {message && (
-                <p className={`login-message ${isError ? 'login-message--error' : 'login-message--success'}`}>
-                    {message}
-                </p>
-            )}
+                {message && (
+                    <p className={`RegForm__message ${isError ? 'RegForm__message--error' : 'RegForm__message--success'}`}>
+                        {message}
+                    </p>
+                )}
+            </div>
         </div>
     )
 }

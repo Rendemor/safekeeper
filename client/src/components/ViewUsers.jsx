@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import '../styles/components/ViewUsers.less'
 import { privateAPI } from '../api/private'
+import { useModal } from '../context/ModalContext'
+import ConfirmModal from '../components/ConfirmModal'
 
-const AdminPanel = ({ onToggleBlock, onDelete }) => {
+const AdminPanel = () => {
     const [users, setUsers] = useState([])
     const [selectedRoleFilter, setSelectedRoleFilter] = useState("all")
     const [roles, setRoles] = useState([])
+    const { openModal } = useModal()
 
     useEffect(() => {
         loadUsers()
@@ -14,6 +17,7 @@ const AdminPanel = ({ onToggleBlock, onDelete }) => {
 
     const fetchRoles = async () => {
         const data = await privateAPI.GetAllRoles()
+        console.log(data)
         setRoles(data)
     }
 
@@ -26,10 +30,40 @@ const AdminPanel = ({ onToggleBlock, onDelete }) => {
         }
     }
 
-    // Фильтрация: сначала по выбранной роли, потом по поиску (если он нужен)
+    const setBlocked = async (user) => {
+        try {
+            if (user.isBlocked) {
+                await privateAPI.UnblockedUser(user.id)
+            } else {
+                await privateAPI.BlockedUser(user.id)
+            }
+
+            user.isBlocked = !user.isBlocked 
+            loadUsers()
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    const deleteUser = async (user) => {
+        const result = await openModal(ConfirmModal, { title: user.email })
+
+        if(!result) {
+            return 
+        }
+
+        try {
+            await privateAPI.DeleteUser(user.id)
+            loadUsers()
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    // фильтрация: сначала по выбранной роли, потом по поиску (если он нужен)
     const filteredUsers = users.filter(user => {
         if (selectedRoleFilter === "all") return true
-        return user.role?.name === selectedRoleFilter
+        return user.role?.Name === selectedRoleFilter
     })
 
     return (
@@ -67,18 +101,18 @@ const AdminPanel = ({ onToggleBlock, onDelete }) => {
                             </td>
                             <td className="users-table__td">{user.email}</td>
                             <td className="users-table__td">
-                                <span className="users-table__role-label">{user.role?.name || 'Роль'}</span>
+                                <span className="users-table__role-label">{user.role?.Name || 'Роль'}</span>
                             </td>
                             <td className="users-table__td users-table__td--actions">
                                 <button 
                                     className={`admin-btn ${user.isBlocked ? 'admin-btn--unblock' : 'admin-btn--block'}`}
-                                    onClick={() => onToggleBlock(user.id, !user.isBlocked)}
+                                    onClick={() => setBlocked(user)}
                                 >
                                     {user.isBlocked ? 'Разблокировать' : 'Заблокировать'}
                                 </button>
                                 <button 
                                     className="admin-btn admin-btn--delete"
-                                    onClick={() => onDelete(user.id)}
+                                    onClick={() => deleteUser(user)}
                                 >
                                     Удалить
                                 </button>

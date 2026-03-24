@@ -821,6 +821,10 @@ func RefreshJWT(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, APIError{Error: "Пользователь не найден"})
 	}
 
+	if user.Blocked {
+		return c.JSON(http.StatusUnauthorized, APIError{Error: "Пользователь заблокирован"})
+	}
+
 	// получаем права по id роли
 	permission, err := getUserPermissions(DB, user.RoleID)
 	if err != nil {
@@ -877,12 +881,14 @@ func GetAllRoles(c echo.Context) error {
 
 func GetUsers(c echo.Context) error {
 	type Res struct {
+		ID         uuid.UUID `json:"id"`
 		RoleID     int       `json:"roleID"`
 		Role       Role      `json:"role"`
 		FirstName  string    `json:"firstName"`
 		LastName   string    `json:"lastName"`
 		Patronymic string    `json:"patronymic"`
 		Email      string    `json:"email"`
+		Blocked    bool      `json:"isBlocked"`
 		CreatedAt  time.Time `json:"createdAt"`
 	}
 
@@ -893,4 +899,165 @@ func GetUsers(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, users)
+}
+
+func GetPermissions(c echo.Context) error {
+	var permissions []Permission
+
+	if err := DB.Find(&permissions).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.JSON(http.StatusOK, permissions)
+}
+
+func AddRole(c echo.Context) error {
+	type Req struct {
+		Name        string `json:"name"`
+		Permissions []int  `json:"permissions"`
+	}
+
+	req := new(Req)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "Неверный формат данных"})
+	}
+
+	// транзакция
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		// прикольный момент. Я не только добавляю новую роль, так ещё и сама структура роли автоматически заполняется новым ID
+		newRole := Role{Name: req.Name}
+		if err := tx.Create(&newRole).Error; err != nil {
+			return err
+		}
+
+		// вместо кучи запросов в БД, лучше собрать все данные и выполнить один запрос
+		var rolePermissions []RolePermission
+		for _, pID := range req.Permissions {
+			rolePermissions = append(rolePermissions, RolePermission{
+				RoleID:       newRole.ID,
+				PermissionID: pID,
+			})
+		}
+
+		if len(rolePermissions) > 0 {
+			// вот тут как раз таки один запрос, а не куча через for
+			if err := tx.Create(&rolePermissions).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка при создании роли"})
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func BlockedUser(c echo.Context) error {
+	uuid := c.QueryParam("uuid")
+
+	user := new(User)
+	// получаем пользователя, которого надо забанить
+	if err := DB.Where("id = ?", uuid).Find(&user).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	if err := DB.Table("users").
+		Where("id = ?", user.ID).
+		Update("blocked", true).
+		Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func UnblockedUser(c echo.Context) error {
+	uuid := c.QueryParam("uuid")
+
+	user := new(User)
+	// получаем пользователя, которого надо разбанить
+	if err := DB.Where("id = ?", uuid).Find(&user).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	if err := DB.Table("users").
+		Where("id = ?", user.ID).
+		Update("blocked", false).
+		Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func DeleteUser(c echo.Context) error {
+	deleteID := c.QueryParam("uuid")
+
+	if err := DB.Delete(&User{}, "id = ?", deleteID).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
+
+func GetRoles(c echo.Context) error {
+	type Req struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+
+	var req []Req
+	if err := DB.Model(&Role{}).Select("id", "name").Scan(&req).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.JSON(http.StatusOK, req)
+}
+
+func GetRole(c echo.Context) error {
+	roleID := c.QueryParam("id")
+	if roleID == "" {
+		return c.JSON(http.StatusBadRequest, APIError{Error: "ID не указан"})
+	}
+
+	type PermissionDTO struct {
+		ID   int    `json:"id"`
+		Code string `json:"code"`
+	}
+
+	type Req struct {
+		ID          int             `json:"id"`
+		Name        string          `json:"name"`
+		Permissions []PermissionDTO `json:"permissions"`
+	}
+
+	type RoleData struct {
+		ID   int
+		Name string
+	}
+
+	var roleData RoleData
+	if err := DB.Model(&Role{}).Select("id", "name").Where("id = ?", roleID).First(&roleData).Error; err != nil {
+		return c.JSON(http.StatusNotFound, APIError{Error: "Роль не найдена"})
+	}
+
+	var req Req
+	// чтобы ошибку не вызывать (gorm не может подтянуть Permissions, ругается), сначала вытаскиваю одни данные, потом объединяю
+	req.ID = roleData.ID
+	req.Name = roleData.Name
+
+	// получение прав этой роли
+	if err := DB.Table("role_permissions rp").
+		Select("p.id", "p.code").
+		Joins("JOIN permissions p ON p.id = rp.permission_id").
+		Where("rp.role_id = ? AND p.deleted_at IS NULL", req.ID).
+		Scan(&req.Permissions).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, APIError{Error: "Ошибка БД"})
+	}
+
+	return c.JSON(http.StatusOK, req)
 }
